@@ -8,6 +8,7 @@ import {
   listenHandler,
   whoHandler,
   historyHandler,
+  listChannelsHandler,
 } from "./handlers.ts";
 import { createStore, getOrCreateChannel, type Store } from "../store/store.ts";
 import { loadConfig } from "../store/config.ts";
@@ -257,6 +258,51 @@ describe("historyHandler", () => {
     assert.equal(result.ok, true);
     if (!result.ok) return;
     assert.deepEqual(result.value.messages, []);
+  });
+});
+
+describe("listChannelsHandler", () => {
+  it("returns an empty list when no channels exist", () => {
+    const store = makeStore();
+    const result = listChannelsHandler(store);
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.deepEqual(result.value.channels, []);
+  });
+
+  it("returns each channel with its current member count, sorted by name", () => {
+    const store = makeStore();
+    joinHandler(store, { channel: "#dev", nick: "alice" });
+    joinHandler(store, { channel: "#dev", nick: "bob" });
+    joinHandler(store, { channel: "#general", nick: "alice" });
+    const result = listChannelsHandler(store);
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.deepEqual(result.value.channels, [
+      { name: "#dev", members: 2 },
+      { name: "#general", members: 1 },
+    ]);
+  });
+
+  it("includes empty channels (after everyone has left)", () => {
+    const store = makeStore();
+    joinHandler(store, { channel: "#empty", nick: "alice" });
+    leaveHandler(store, { channel: "#empty", nick: "alice" });
+    const result = listChannelsHandler(store);
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.deepEqual(result.value.channels, [{ name: "#empty", members: 0 }]);
+  });
+
+  it("never exposes password_hash for gated channels", () => {
+    const store = makeStore();
+    getOrCreateChannel(store, "#secret", "hunter2");
+    const result = listChannelsHandler(store);
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    const body = JSON.stringify(result.value);
+    assert.ok(!/password_hash/i.test(body));
+    assert.ok(!body.includes("hunter2"));
   });
 });
 

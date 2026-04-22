@@ -10,6 +10,7 @@ import {
   listenHandler,
   whoHandler,
   historyHandler,
+  listChannelsHandler,
   type Result,
 } from "../http/handlers.ts";
 import type { RouteHandler } from "../http/router.ts";
@@ -150,6 +151,16 @@ export function createMcpServer(store: Store): McpServer {
       },
     },
     async (args) => toToolResponse(historyHandler(store, args)),
+  );
+
+  server.registerTool(
+    "list_channels",
+    {
+      description:
+        "List all channels on this server with current member counts. No arguments.",
+      inputSchema: {},
+    },
+    async () => toToolResponse(listChannelsHandler(store)),
   );
 
   return server;

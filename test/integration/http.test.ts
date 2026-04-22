@@ -139,6 +139,22 @@ describe("HTTP integration", () => {
     assert.deepEqual(body.messages.map((m: { text: string }) => m.text), ["m1", "m2"]);
   });
 
+  it("POST /api/channels lists channels with member counts, sorted by name", async () => {
+    await post(h, "/api/join", { channel: "#alpha", nick: "alice" });
+    await post(h, "/api/join", { channel: "#alpha", nick: "bob" });
+    await post(h, "/api/join", { channel: "#beta", nick: "alice" });
+    const res = await post(h, "/api/channels", {});
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    const names = body.channels.map((c: { name: string }) => c.name);
+    const sorted = [...names].sort();
+    assert.deepEqual(names, sorted);
+    const alpha = body.channels.find((c: { name: string }) => c.name === "#alpha");
+    const beta = body.channels.find((c: { name: string }) => c.name === "#beta");
+    assert.equal(alpha.members, 2);
+    assert.equal(beta.members, 1);
+  });
+
   it("password-gated channel rejects bad password and accepts correct one", async () => {
     await post(h, "/api/join", {
       channel: "#secret",
@@ -229,6 +245,11 @@ describe("YAP_PASSWORD gating", () => {
     assert.equal(res.status, 401);
   });
 
+  it("returns 401 on /api/channels without credentials", async () => {
+    const res = await post(h, "/api/channels", {});
+    assert.equal(res.status, 401);
+  });
+
   it("accepts credentials on /api/* with Bearer", async () => {
     const res = await post(
       h,
@@ -300,6 +321,7 @@ describe("invariants across the HTTP surface", () => {
       () => post(h, "/api/history", { channel: "#secret", nick: "alice" }),
       () => post(h, "/api/who", { channel: "#secret", nick: "alice" }),
       () => post(h, "/api/say", { channel: "#secret", nick: "alice", message: "again" }),
+      () => post(h, "/api/channels", {}),
       () => fetch(`${h.base}/mcp-config`),
       () => fetch(`${h.base}/health`),
     ];

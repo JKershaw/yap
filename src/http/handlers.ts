@@ -228,6 +228,19 @@ export function whoHandler(
   return ok({ members });
 }
 
+export type ChannelSummary = { name: string; members: number };
+
+export function listChannelsHandler(
+  store: Store,
+): Result<{ channels: ChannelSummary[] }> {
+  const channels: ChannelSummary[] = [];
+  for (const ch of store.channels.values()) {
+    channels.push({ name: ch.name, members: ch.members.size });
+  }
+  channels.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  return ok({ channels });
+}
+
 export type HistoryArgs = {
   channel: string;
   nick: string;

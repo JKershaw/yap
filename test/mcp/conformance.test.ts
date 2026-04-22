@@ -52,11 +52,20 @@ describe("MCP conformance", () => {
     await close(h);
   });
 
-  it("exposes the 7 v0.1.0 tools", async () => {
+  it("exposes the expected tool set", async () => {
     const client = await connect(h);
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
-    assert.deepEqual(names, ["history", "join", "leave", "listen", "poll", "say", "who"]);
+    assert.deepEqual(names, [
+      "history",
+      "join",
+      "leave",
+      "list_channels",
+      "listen",
+      "poll",
+      "say",
+      "who",
+    ]);
     await client.close();
   });
 
@@ -173,6 +182,31 @@ describe("MCP conformance", () => {
     });
     const body = parseTextResult<{ messages: { text: string }[] }>(res);
     assert.deepEqual(body.messages.map((m) => m.text), ["m1", "m2"]);
+    await client.close();
+  });
+
+  it("tool: list_channels returns every channel with member counts", async () => {
+    const client = await connect(h);
+    await client.callTool({
+      name: "join",
+      arguments: { channel: "#disco-a", nick: "alice" },
+    });
+    await client.callTool({
+      name: "join",
+      arguments: { channel: "#disco-a", nick: "bob" },
+    });
+    await client.callTool({
+      name: "join",
+      arguments: { channel: "#disco-b", nick: "alice" },
+    });
+    const res = await client.callTool({ name: "list_channels", arguments: {} });
+    const body = parseTextResult<{
+      channels: { name: string; members: number }[];
+    }>(res);
+    const a = body.channels.find((c) => c.name === "#disco-a");
+    const b = body.channels.find((c) => c.name === "#disco-b");
+    assert.equal(a?.members, 2);
+    assert.equal(b?.members, 1);
     await client.close();
   });
 
