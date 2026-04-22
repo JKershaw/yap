@@ -50,7 +50,8 @@ async function onJoin(e) {
   setError(el.joinError, null);
   const form = new FormData(el.joinForm);
   const nick = String(form.get("nick") ?? "").trim();
-  const channel = String(form.get("channel") ?? "").trim();
+  const rawChannel = String(form.get("channel") ?? "").trim();
+  const channel = /^[#&]/.test(rawChannel) ? rawChannel : `#${rawChannel}`;
   const password = String(form.get("password") ?? "").trim() || null;
   if (!nick || !channel) return;
 
