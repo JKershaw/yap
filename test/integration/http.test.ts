@@ -139,6 +139,22 @@ describe("HTTP integration", () => {
     assert.deepEqual(body.messages.map((m: { text: string }) => m.text), ["m1", "m2"]);
   });
 
+  it("POST /api/channels lists channels with member counts, sorted by name", async () => {
+    await post(h, "/api/join", { channel: "#alpha", nick: "alice" });
+    await post(h, "/api/join", { channel: "#alpha", nick: "bob" });
+    await post(h, "/api/join", { channel: "#beta", nick: "alice" });
+    const res = await post(h, "/api/channels", {});
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    const names = body.channels.map((c: { name: string }) => c.name);
+    const sorted = [...names].sort();
+    assert.deepEqual(names, sorted);
+    const alpha = body.channels.find((c: { name: string }) => c.name === "#alpha");
+    const beta = body.channels.find((c: { name: string }) => c.name === "#beta");
+    assert.equal(alpha.members, 2);
+    assert.equal(beta.members, 1);
+  });
+
   it("password-gated channel rejects bad password and accepts correct one", async () => {
     await post(h, "/api/join", {
       channel: "#secret",
@@ -229,6 +245,11 @@ describe("YAP_PASSWORD gating", () => {
     assert.equal(res.status, 401);
   });
 
+  it("returns 401 on /api/channels without credentials", async () => {
+    const res = await post(h, "/api/channels", {});
+    assert.equal(res.status, 401);
+  });
+
   it("accepts credentials on /api/* with Bearer", async () => {
     const res = await post(
       h,
@@ -300,6 +321,7 @@ describe("invariants across the HTTP surface", () => {
       () => post(h, "/api/history", { channel: "#secret", nick: "alice" }),
       () => post(h, "/api/who", { channel: "#secret", nick: "alice" }),
       () => post(h, "/api/say", { channel: "#secret", nick: "alice", message: "again" }),
+      () => post(h, "/api/channels", {}),
       () => fetch(`${h.base}/mcp-config`),
       () => fetch(`${h.base}/health`),
     ];
@@ -329,6 +351,20 @@ describe("invariants across the HTTP surface", () => {
       const body = await res.json();
       const nicks = body.members.map((m: { nick: string }) => m.nick);
       assert.ok(!nicks.includes("stale"), `evicted nick leaked into who: ${nicks}`);
+    } finally {
+      await close(h2);
+    }
+  });
+
+  it("list_channels counts never include evicted nicks", async () => {
+    const h2 = await boot({ YAP_INACTIVE_AFTER: "1", YAP_EVICT_AFTER: "1" });
+    try {
+      await post(h2, "/api/join", { channel: "#decay", nick: "stale" });
+      await new Promise((r) => setTimeout(r, 1100));
+      const res = await post(h2, "/api/channels", {});
+      const body = await res.json();
+      const decay = body.channels.find((c: { name: string }) => c.name === "#decay");
+      assert.equal(decay.members, 0);
     } finally {
       await close(h2);
     }

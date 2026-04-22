@@ -14,6 +14,7 @@ import {
   listenHandler,
   whoHandler,
   historyHandler,
+  listChannelsHandler,
   type Result,
 } from "./handlers.ts";
 import {
@@ -91,6 +92,7 @@ export function buildRouter(opts: ServerOptions): Router {
   addRoute(router, "POST", "/api/listen", gated(apiRouteAsync(store, listenHandler)));
   addRoute(router, "POST", "/api/who", gated(apiRoute(store, whoHandler)));
   addRoute(router, "POST", "/api/history", gated(apiRoute(store, historyHandler)));
+  addRoute(router, "POST", "/api/channels", gated(apiRouteNoArgs(store, listChannelsHandler)));
 
   // MCP config blob and (optional) MCP endpoint
   addRoute(
@@ -150,6 +152,15 @@ function apiRoute<A extends { nick: string }, T>(
     const args = { ...(body as object), nick } as A;
     const result = fn(store, args);
     writeResult(res, result, opts.setNickCookie ? nick : undefined);
+  };
+}
+
+function apiRouteNoArgs<T>(
+  store: Store,
+  fn: (store: Store) => Result<T>,
+): RouteHandler {
+  return async (_req, res) => {
+    writeResult(res, fn(store));
   };
 }
 
