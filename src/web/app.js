@@ -42,6 +42,8 @@ if (savedNick) {
   /** @type {HTMLInputElement} */ (el.joinForm.elements.namedItem("nick")).value = savedNick;
 }
 
+/** @type {HTMLInputElement} */ (el.joinForm.elements.namedItem("channel")).value = "#general";
+
 /**
  * @param {Event} e
  */
