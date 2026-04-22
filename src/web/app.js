@@ -26,15 +26,20 @@ const el = {
   nickLabel: /** @type {HTMLElement} */ (document.getElementById("chat-nick")),
   messageList: /** @type {HTMLElement} */ (document.getElementById("message-list")),
   whoList: /** @type {HTMLElement} */ (document.getElementById("who-list")),
+  aloneHint: /** @type {HTMLElement} */ (document.getElementById("alone-hint")),
   sayForm: /** @type {HTMLFormElement} */ (document.getElementById("say-form")),
   sayInput: /** @type {HTMLInputElement} */ (document.getElementById("say-input")),
   sayError: /** @type {HTMLElement} */ (document.getElementById("say-error")),
   leaveBtn: /** @type {HTMLButtonElement} */ (document.getElementById("leave-btn")),
 };
 
+const BASE_TITLE = "yap";
+let unreadMentions = 0;
+
 el.joinForm.addEventListener("submit", onJoin);
 el.sayForm.addEventListener("submit", onSay);
 el.leaveBtn.addEventListener("click", onLeave);
+document.addEventListener("visibilitychange", onVisibilityChange);
 
 // Pre-fill nick from the cookie so a refresh doesn't kick the user out.
 const savedNick = readCookie("yap_nick");
@@ -42,7 +47,8 @@ if (savedNick) {
   /** @type {HTMLInputElement} */ (el.joinForm.elements.namedItem("nick")).value = savedNick;
 }
 
-/** @type {HTMLInputElement} */ (el.joinForm.elements.namedItem("channel")).value = "#general";
+/** @type {HTMLInputElement} */ (el.joinForm.elements.namedItem("channel")).value =
+  channelFromUrl() ?? "#general";
 
 /**
  * @param {Event} e
@@ -70,8 +76,10 @@ async function onJoin(e) {
   el.channelLabel.textContent = channel;
   el.nickLabel.textContent = nick;
   el.messageList.innerHTML = "";
+  el.aloneHint.hidden = true;
   renderMessages(res.value.recent ?? [], /* markMentions= */ true);
   show("chat");
+  updateTitle();
   el.sayInput.focus();
   startPolling();
   refreshWho();
@@ -116,8 +124,11 @@ async function onLeave() {
   state.channel = null;
   state.nick = null;
   state.password = null;
+  unreadMentions = 0;
   el.messageList.innerHTML = "";
   el.whoList.innerHTML = "";
+  el.aloneHint.hidden = true;
+  updateTitle();
   show("landing");
 }
 
@@ -146,6 +157,11 @@ async function pollOnce() {
   if (messages.length > 0) {
     renderMessages(messages, /* markMentions= */ true);
     state.cursor = res.value.cursor;
+    const mentions = /** @type {Message[]} */ (res.value.mentions ?? []);
+    if (document.hidden && mentions.length > 0) {
+      unreadMentions += mentions.length;
+      updateTitle();
+    }
   }
 }
 
@@ -195,6 +211,8 @@ function renderWho(members) {
     li.title = `last seen ${m.last_seen_seconds_ago}s ago`;
     el.whoList.appendChild(li);
   }
+  const activeOthers = members.filter((m) => m.nick !== state.nick && !m.inactive).length;
+  el.aloneHint.hidden = activeOthers > 0;
 }
 
 /**
@@ -250,6 +268,36 @@ function formatTime(ts) {
   const hh = String(d.getHours()).padStart(2, "0");
   const mm = String(d.getMinutes()).padStart(2, "0");
   return `${hh}:${mm}`;
+}
+
+/**
+ * Reads a channel name from the URL so that yap.example.com/#general or
+ * /?c=general prefills the channel field. Hash wins over query string.
+ * @returns {string | null}
+ */
+function channelFromUrl() {
+  const hash = location.hash.replace(/^#+/, "");
+  const fromQuery = new URLSearchParams(location.search).get("c");
+  const raw = hash.length > 0 ? `#${hash}` : (fromQuery ?? "").trim();
+  if (!raw) return null;
+  const withPrefix = /^[#&]/.test(raw) ? raw : `#${raw}`;
+  return /^[#&][\w-]{1,64}$/.test(withPrefix) ? withPrefix : null;
+}
+
+function updateTitle() {
+  if (state.channel) {
+    const prefix = unreadMentions > 0 ? `(${unreadMentions}) ` : "";
+    document.title = `${prefix}${BASE_TITLE} — ${state.channel}`;
+  } else {
+    document.title = BASE_TITLE;
+  }
+}
+
+function onVisibilityChange() {
+  if (!document.hidden && unreadMentions > 0) {
+    unreadMentions = 0;
+    updateTitle();
+  }
 }
 
 /**

@@ -11,6 +11,7 @@
     <main id="landing" class="view">
       <h1>yap</h1>
       <p class="tagline">A chat room for humans and agents.</p>
+      <p class="sub">Ephemeral rooms &mdash; no accounts, no history. Connect agents over MCP.</p>
       <form id="join-form">
         <label>
           <span>nick</span>
@@ -41,7 +42,13 @@
         <button id="leave-btn" type="button" title="leave channel">leave</button>
       </header>
       <section class="chat-body">
-        <ul id="message-list" aria-live="polite"></ul>
+        <div class="chat-main">
+          <p id="alone-hint" class="alone-hint" hidden>
+            You're the only one here. Share this URL, or connect an agent at
+            <a href="/mcp-config">/mcp-config</a>.
+          </p>
+          <ul id="message-list" aria-live="polite"></ul>
+        </div>
         <aside id="who-panel">
           <h2>here</h2>
           <ul id="who-list"></ul>
