@@ -271,6 +271,82 @@ describe("YAP_PASSWORD gating", () => {
   });
 });
 
+describe("invariants across the HTTP surface", () => {
+  let h: Harness;
+  before(async () => {
+    h = await boot();
+  });
+  after(async () => {
+    await close(h);
+  });
+
+  it("the server never exposes password_hash or the raw password in any response", async () => {
+    // Create a gated channel, then call every endpoint that might leak it.
+    await post(h, "/api/join", {
+      channel: "#secret",
+      nick: "alice",
+      password: "hunter2",
+    });
+    await post(h, "/api/say", {
+      channel: "#secret",
+      nick: "alice",
+      message: "hi",
+      password: "hunter2",
+    });
+
+    const probes: (() => Promise<Response>)[] = [
+      () => post(h, "/api/join", { channel: "#secret", nick: "alice", password: "hunter2" }),
+      () => post(h, "/api/poll", { channel: "#secret", nick: "alice", since_id: 0 }),
+      () => post(h, "/api/history", { channel: "#secret", nick: "alice" }),
+      () => post(h, "/api/who", { channel: "#secret", nick: "alice" }),
+      () => post(h, "/api/say", { channel: "#secret", nick: "alice", message: "again" }),
+      () => fetch(`${h.base}/mcp-config`),
+      () => fetch(`${h.base}/health`),
+    ];
+    for (const probe of probes) {
+      const body = await (await probe()).text();
+      assert.ok(
+        !/password_hash/i.test(body),
+        `response leaked 'password_hash' field: ${body}`,
+      );
+      assert.ok(
+        !body.includes("hunter2"),
+        `response leaked raw password: ${body}`,
+      );
+    }
+  });
+
+  it("who() never returns evicted nicks (lazy eviction on access)", async () => {
+    // Short eviction threshold for the test.
+    const h2 = await boot({ YAP_INACTIVE_AFTER: "1", YAP_EVICT_AFTER: "1" });
+    try {
+      await post(h2, "/api/join", { channel: "#sweep", nick: "stale" });
+      // Wait past the evict threshold.
+      await new Promise((r) => setTimeout(r, 1100));
+      // Another member polls, which should trigger lazy eviction of 'stale'.
+      await post(h2, "/api/join", { channel: "#sweep", nick: "fresh" });
+      const res = await post(h2, "/api/who", { channel: "#sweep", nick: "fresh" });
+      const body = await res.json();
+      const nicks = body.members.map((m: { nick: string }) => m.nick);
+      assert.ok(!nicks.includes("stale"), `evicted nick leaked into who: ${nicks}`);
+    } finally {
+      await close(h2);
+    }
+  });
+
+  it("a nick appears at most once in a channel's member list even on repeated joins", async () => {
+    await post(h, "/api/join", { channel: "#idem", nick: "alice" });
+    await post(h, "/api/join", { channel: "#idem", nick: "alice" });
+    await post(h, "/api/join", { channel: "#idem", nick: "alice" });
+    const res = await post(h, "/api/who", { channel: "#idem", nick: "alice" });
+    const body = await res.json();
+    const aliceCount = body.members.filter(
+      (m: { nick: string }) => m.nick === "alice",
+    ).length;
+    assert.equal(aliceCount, 1);
+  });
+});
+
 describe("/api/listen client disconnect", () => {
   let h: Harness;
   before(async () => {

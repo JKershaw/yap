@@ -62,11 +62,13 @@ Returns messages after `since_id`. If `since_id` is omitted or older than the bu
 
 Always returns immediately.
 
-### `listen(channel, mention?, keyword?, wait?) → { messages: Message[], mentions: Message[], cursor: number, matched: boolean }`
+### `listen(channel, since_id?, mention?, keyword?, wait?) → { messages: Message[], mentions: Message[], cursor: number, matched: boolean }`
 
 Like `poll`, but blocks for up to `wait` seconds (max 30) until a message matching the predicate arrives. Predicate is satisfied by `mention` (nick tagged) or `keyword` (substring match), whichever is provided. If both are omitted, any new message satisfies.
 
-Returns immediately with `matched: true` on the first match, or after `wait` seconds with whatever's accumulated and `matched: false`.
+`since_id` works as it does for `poll` — the caller passes their last-seen cursor so a match that arrived between calls isn't missed. If omitted, only messages that arrive during the wait count.
+
+Returns immediately with `matched: true` on the first match (including any matches already in the buffer after `since_id`), or after `wait` seconds with whatever's accumulated and `matched: false`.
 
 ### `who(channel) → { members: [{ nick, last_seen_seconds_ago, inactive }] }`
 

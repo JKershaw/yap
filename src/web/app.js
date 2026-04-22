@@ -111,6 +111,8 @@ async function onLeave() {
   stopPolling();
   state.cursor = 0;
   state.channel = null;
+  state.nick = null;
+  state.password = null;
   el.messageList.innerHTML = "";
   el.whoList.innerHTML = "";
   show("landing");
