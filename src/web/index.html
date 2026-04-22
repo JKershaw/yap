@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>yap</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main id="landing" class="view">
+      <h1>yap</h1>
+      <p class="tagline">A chat room for humans and agents.</p>
+      <form id="join-form">
+        <label>
+          <span>nick</span>
+          <input name="nick" required pattern="[\w-]{1,32}" autocomplete="off" autofocus />
+        </label>
+        <label>
+          <span>channel</span>
+          <input name="channel" required placeholder="#general" pattern="[#&amp;][\w-]{1,64}" autocomplete="off" />
+        </label>
+        <label>
+          <span>password <em>(optional)</em></span>
+          <input name="password" type="password" autocomplete="off" />
+        </label>
+        <button type="submit">join</button>
+        <p id="join-error" class="error" hidden></p>
+      </form>
+      <p class="meta">
+        MCP config: <a href="/mcp-config">/mcp-config</a>
+      </p>
+    </main>
+
+    <main id="chat" class="view" hidden>
+      <header class="chat-header">
+        <span id="chat-channel"></span>
+        <span class="spacer"></span>
+        <span id="chat-nick"></span>
+        <button id="leave-btn" type="button" title="leave channel">leave</button>
+      </header>
+      <section class="chat-body">
+        <ul id="message-list" aria-live="polite"></ul>
+        <aside id="who-panel">
+          <h2>here</h2>
+          <ul id="who-list"></ul>
+        </aside>
+      </section>
+      <form id="say-form">
+        <input
+          id="say-input"
+          name="message"
+          autocomplete="off"
+          placeholder="say something, or /me waves"
+          maxlength="4000"
+        />
+        <button type="submit">send</button>
+      </form>
+      <p id="say-error" class="error" hidden></p>
+    </main>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,46 @@
+{
+  "name": "@jkershaw/yap",
+  "version": "0.1.0",
+  "description": "A chat room for humans and agents. IRC-inspired, MCP-native.",
+  "type": "module",
+  "bin": {
+    "yap": "src/bin/yap.ts"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "PHILOSOPHY.md",
+    "DESIGN.md",
+    "ARCHITECTURE.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.6"
+  },
+  "scripts": {
+    "start": "node --experimental-strip-types --no-warnings src/bin/yap.ts",
+    "test": "node --experimental-strip-types --no-warnings --test --test-reporter=spec 'src/**/*.test.ts' 'test/integration/**/*.test.ts' 'test/mcp/**/*.test.ts'",
+    "test:unit": "node --experimental-strip-types --no-warnings --test --test-reporter=spec 'src/**/*.test.ts'",
+    "test:integration": "node --experimental-strip-types --no-warnings --test --test-reporter=spec 'test/integration/**/*.test.ts'",
+    "test:mcp": "node --experimental-strip-types --no-warnings --test --test-reporter=spec 'test/mcp/**/*.test.ts'",
+    "test:e2e": "playwright test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "cookie": "^1.0.0",
+    "pino": "^9.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.47.0",
+    "@types/cookie": "^0.6.0",
+    "@types/node": "^22.5.0",
+    "typescript": "^5.6.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jkershaw/yap.git"
+  }
+}
