@@ -32,6 +32,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   for (const [k, v] of Object.entries(env)) {
     if (v !== undefined && v !== "") filtered[k] = v;
   }
+  if (!filtered.YAP_PORT && filtered.PORT) filtered.YAP_PORT = filtered.PORT;
   const parsed = envSchema.parse(filtered);
   return {
     port: parsed.YAP_PORT,
