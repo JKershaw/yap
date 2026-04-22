@@ -6,5 +6,6 @@ npm-debug.log*
 coverage/
 playwright-report/
 test-results/
+test/e2e/screenshots-*/
 *.log
 .claude/
