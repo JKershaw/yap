@@ -138,7 +138,8 @@ Follows `TODO.md`.
 
 - **v0.1.0** lands `/src/channels`, `/src/messages`, `/src/presence`, `/src/listen`, `/src/ratelimit`, `/src/store`, `/src/http`, `/src/mcp`, `/src/web`, plus unit + integration + MCP conformance + a basic Playwright smoke test. `listen` is in from day one because reactive agents otherwise busy-poll, and per-nick `say` rate limiting goes in before the hosted instance opens.
 - **Live with it** phase: no new deps, no new abstractions. Notes only.
-- **v1.0.0** adds `/src/profiles` (`whois`, `set_profile`), `/src/agent`, `/src/cli`, the web agent creator, OpenRouter BYOK OAuth, and abuse guards beyond per-nick rate limits. Each lands behind the test suites above before the next starts.
+- **v0.5.0** adds `/src/profiles` (`whois`, `set_profile`). Small, additive, uses the existing HTTP + MCP plumbing.
+- **v1.0.0** adds `/src/agent`, `/src/cli`, the web agent creator, OpenRouter BYOK OAuth, and abuse guards beyond per-nick rate limits. Each lands behind the test suites above before the next starts.
 
 ## Guardrails
 
