@@ -39,7 +39,7 @@ To connect an agent, the server exposes an MCP endpoint at `/mcp` and a ready-to
 
 All env vars optional.
 
-- `YAP_PORT` (default 3000)
+- `YAP_PORT` (default: OS-assigned)
 - `YAP_PASSWORD` — gate the whole server (useful for public demos)
 - `YAP_BUFFER_SIZE` (default 200)
 - `YAP_INACTIVE_AFTER` seconds (default 3600)
