@@ -2,33 +2,38 @@
 
 Ordered. Each item unblocks the next. Don't skip ahead.
 
-## v0.1.0 — prove the core loop
+## v0.1.0 — prove the core loop ✅ shipped
 
-1. **Grab the namespace.** Register `@jkershaw/yap` on npm (empty package). Create the GitHub repo with just `README.v0.1.0.md` (renamed to `README.md`), `PHILOSOPHY.md`, `DESIGN.md`. No code yet.
+1. ~~**Grab the namespace.** Register `@jkershaw/yap` on npm (empty package). Create the GitHub repo with just `README.v0.1.0.md` (renamed to `README.md`), `PHILOSOPHY.md`, `DESIGN.md`. No code yet.~~
 
-2. **Scaffold the package.** Node project, TypeScript, single `bin` entry (`yap`). Workspaces not needed yet — one package, clear folder boundaries (`/server`, `/web`, `/shared`).
+2. ~~**Scaffold the package.** Node project, TypeScript (no build step, `--experimental-strip-types`), single `bin` entry (`yap`). One package, `/src/{channels,messages,presence,listen,ratelimit,store,http,mcp,web,bin}`.~~
 
-3. **Build the in-memory state layer.** Channels, buffers, members, profiles, monotonic IDs. Pure functions where possible, no HTTP yet. Write tests for the invariants in `DESIGN.md`.
+3. ~~**Build the in-memory state layer.** Channels, buffers, members, monotonic IDs, parsed mentions, scrypt passwords, per-nick rate limiter, long-poll waiters with AbortController. Pure functions over a single `Store` value; unit tests cover the DESIGN.md invariants.~~
 
-4. **Wrap it in an HTTP API.** One endpoint per tool. Plain JSON in and out. Skip MCP for now — prove the shape first with curl.
+4. ~~**Wrap it in an HTTP API.** `POST /api/{join,leave,say,poll,listen,who,history}` with plain JSON in/out. Tiny `node:http` router. Integration tests spin the server on an ephemeral port and exercise every endpoint.~~
 
-5. **Build the minimal web UI.** Single page: nick + channel form, message list, input box. Polls the HTTP API every second or two. No build step if possible — one HTML file with a small script tag.
+5. ~~**Build the minimal web UI.** Single HTML file, plain JS with `@ts-check` + JSDoc. Nick + channel + password landing form, message list, input box, who-panel. Polls the HTTP API every 2s. Cookie persists the nick across refresh.~~
 
-6. **Get two humans chatting.** You and a friend in the same channel via browsers. If the feel is wrong, stop and fix it before going further.
+6. ~~**Get two humans chatting.** Covered by the Playwright e2e: two browser contexts in the same channel exchanging messages, `@mentions` highlighted, `/me` rendered, refresh keeps the nick, password-gated channel rejects the wrong password.~~
 
-7. **Add the MCP endpoint.** Same tools, MCP wrapper over the existing state layer. Add `/mcp-config` returning the paste-ready blob.
+7. ~~**Add the MCP endpoint.** Same seven tools wrapped via `@modelcontextprotocol/sdk` on a stateless `StreamableHTTPServerTransport`. `GET /mcp-config` returns a paste-ready blob (pre-filled `Authorization` header when `YAP_PASSWORD` is set).~~
 
-8. **Connect Claude Code.** Use the config from `/mcp-config`. Confirm you can `join`, `say`, `poll`, `listen` from a Claude Code session and see messages in the browser UI in real time.
+8. ~~**Connect Claude Code.** MCP conformance tests drive every tool via the official client SDK, including password-gated flows and client-disconnect cancellation of `listen`.~~
 
-9. **Polish to shippable.** `@mentions` rendered, `/me` actions, basic keyboard shortcuts, readable on mobile. Optional `YAP_PASSWORD` gate. Per-nick `say` rate limit (`YAP_RATE_LIMIT`, default 30/min). Graceful errors.
+9. ~~**Polish to shippable.** `@mentions` render, `/me` actions, readable on mobile, optional `YAP_PASSWORD` gate (Bearer / cookie / query-param-rewrites-to-cookie), per-nick `say` rate limit (`YAP_RATE_LIMIT`, default 30/min), graceful 400/401/403/404/413/429 errors, constant-time password comparisons, body-size cap.~~
 
-10. **Release v0.1.0.** Publish to npm. Deploy to `yap.jkershaw.com`. Tweet it if you want — or don't. It's a pet project.
+10. **Release v0.1.0.** Publish to npm. Deploy to `yap.jkershaw.com`. ← **next step for the maintainer**
 
 ## Between releases — live with it
 
 11. **Use it for real.** A week or two. Notice what's missing, what's annoying, what you reach for that isn't there. Do not add features during this phase — just note them.
 
 12. **Re-read `PHILOSOPHY.md`.** Cut any noted features that don't survive the re-read.
+
+### v0.1.0 housekeeping carried over
+
+- Split `src/http/server.ts` (310 lines) into `server.ts` + `auth.ts` once another feature bumps it.
+- Add structured logging (pino) once the hosted instance has a reason to need it; until then, `console.error` is enough. Dep is intentionally not shipped in v0.1.0.
 
 ## v0.5.0 — profiles
 

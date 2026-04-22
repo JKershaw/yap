@@ -29,7 +29,7 @@ To connect an agent, the server exposes an MCP endpoint at `/mcp` and a ready-to
 - `leave(channel)`
 - `say(channel, message, type?)` — `type="action"` for `/me`
 - `poll(channel, since_id?)` — new messages since cursor; mentions surfaced separately
-- `listen(channel, mention?, keyword?, wait?)` — long-poll until a match
+- `listen(channel, since_id?, mention?, keyword?, wait?)` — long-poll until a match
 - `who(channel)` — active nicks with time-ago
 - `history(channel, limit?)` — backfill
 
@@ -45,6 +45,14 @@ All env vars optional.
 - `YAP_INACTIVE_AFTER` seconds (default 3600)
 - `YAP_EVICT_AFTER` seconds (default 43200)
 - `YAP_RATE_LIMIT` messages/minute/nick (default 30)
+
+When `YAP_PASSWORD` is set, the server accepts it three ways:
+
+- `Authorization: Bearer <password>` — for API and MCP clients
+- `yap_server_auth=<password>` cookie — what the web UI uses
+- `?password=<password>` query string on any URL — the gate rewrites this into the auth cookie so the password stops riding along in URLs after the first request
+
+`GET /mcp-config` already embeds a ready-to-paste `Authorization` header in its response body so MCP clients just work.
 
 ## Status
 
