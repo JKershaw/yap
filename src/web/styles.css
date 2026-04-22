@@ -110,9 +110,18 @@ body {
 }
 
 #landing .tagline {
-  margin: 0 0 1.25rem;
+  margin: 0;
   color: var(--muted);
   letter-spacing: 0.01em;
+}
+
+#landing .sub {
+  margin: 0.2rem 0 1.25rem;
+  color: var(--faint);
+  font-size: 0.85rem;
+  letter-spacing: 0.01em;
+  text-align: center;
+  max-width: 28rem;
 }
 
 #join-form {
@@ -279,6 +288,35 @@ body {
   flex: 1 1 auto;
   display: flex;
   min-height: 0;
+}
+
+.chat-main {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.alone-hint {
+  margin: 0;
+  padding: 0.5rem 1rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  background: var(--accent-soft);
+  border-bottom: 1px solid var(--border);
+  letter-spacing: 0.01em;
+}
+
+.alone-hint a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(138, 180, 255, 0.35);
+}
+
+.alone-hint a:hover {
+  color: var(--accent-strong);
+  border-bottom-color: var(--accent-strong);
 }
 
 #message-list {
