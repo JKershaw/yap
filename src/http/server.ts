@@ -26,6 +26,7 @@ import {
   type Router,
 } from "./router.ts";
 import { mcpConfigHandler } from "./mcp-config.ts";
+import { llmsTxtHandler } from "./llms.ts";
 
 const NICK_COOKIE = "yap_nick";
 const AUTH_COOKIE = "yap_server_auth";
@@ -111,7 +112,8 @@ export function buildRouter(opts: ServerOptions): Router {
   addRoute(router, "GET", "/app.js", gated(staticFileHandler("app.js", "application/javascript; charset=utf-8")));
   addRoute(router, "GET", "/styles.css", gated(staticFileHandler("styles.css", "text/css; charset=utf-8")));
 
-  // Trivial health check (ungated so uptime monitors don't need the password)
+  // Ungated: discovery endpoints that must work before credentials are known
+  addRoute(router, "GET", "/llms.txt", llmsTxtHandler());
   addRoute(router, "GET", "/health", (_req, res) => {
     res.statusCode = 200;
     res.setHeader("content-type", "application/json");

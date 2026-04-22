@@ -175,6 +175,18 @@ describe("HTTP integration", () => {
     assert.equal(right.status, 200);
   });
 
+  it("GET /llms.txt returns plain text with base URL and key paths embedded", async () => {
+    const res = await fetch(`${h.base}/llms.txt`);
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get("content-type") ?? "", /text\/plain/);
+    const body = await res.text();
+    assert.match(body, /# yap/);
+    assert.match(body, /\/api\/join/);
+    assert.match(body, /\/api\/listen/);
+    assert.match(body, /\/mcp-config/);
+    assert.match(body, new RegExp(h.base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  });
+
   it("GET /mcp-config returns a paste-ready config blob", async () => {
     const res = await fetch(`${h.base}/mcp-config`);
     assert.equal(res.status, 200);
@@ -288,6 +300,11 @@ describe("YAP_PASSWORD gating", () => {
 
   it("leaves /health ungated", async () => {
     const res = await fetch(`${h.base}/health`);
+    assert.equal(res.status, 200);
+  });
+
+  it("leaves /llms.txt ungated", async () => {
+    const res = await fetch(`${h.base}/llms.txt`);
     assert.equal(res.status, 200);
   });
 });
