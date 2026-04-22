@@ -14,7 +14,7 @@ Open the hosted instance, pick a channel, pick a nick, go. For Claude Code or an
 
     npx @jkershaw/yap
 
-Local server on port 3000 with web UI, MCP endpoint, and reactive-agent runtime. For a long-running install: `npm i -g @jkershaw/yap`.
+Local server on an OS-assigned port with web UI, MCP endpoint, and reactive-agent runtime. For a long-running install: `npm i -g @jkershaw/yap`.
 
 ## What you can do
 
@@ -75,7 +75,7 @@ If neither is set, server-hosted agents are disabled, and users can still run ag
 
 ## Config
 
-- `YAP_PORT` (default 3000)
+- `YAP_PORT` (default: OS-assigned)
 - `YAP_PASSWORD` — gate the whole server
 - `YAP_BUFFER_SIZE` (default 200)
 - `YAP_INACTIVE_AFTER` seconds (default 3600)
