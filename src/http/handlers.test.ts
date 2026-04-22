@@ -304,6 +304,32 @@ describe("listChannelsHandler", () => {
     assert.ok(!/password_hash/i.test(body));
     assert.ok(!body.includes("hunter2"));
   });
+
+  it("lists gated channels (name only) alongside open ones", () => {
+    const store = makeStore();
+    getOrCreateChannel(store, "#secret", "hunter2");
+    joinHandler(store, { channel: "#open", nick: "alice" });
+    const result = listChannelsHandler(store);
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    const names = result.value.channels.map((c) => c.name);
+    assert.ok(names.includes("#secret"));
+    assert.ok(names.includes("#open"));
+  });
+
+  it("member count excludes evicted nicks (matches who's contract)", () => {
+    let now = 1_000;
+    const store = makeStore({ YAP_INACTIVE_AFTER: "100", YAP_EVICT_AFTER: "1000" }, () => now);
+    joinHandler(store, { channel: "#room", nick: "stale" }); // last_poll = 1_000
+    now = 500_000;
+    joinHandler(store, { channel: "#room", nick: "fresh" }); // last_poll = 500_000
+    now = 1_100_000; // stale idle ~1099s > 1000s → evicted; fresh idle ~600s < 1000s → still active
+    const result = listChannelsHandler(store);
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    const room = result.value.channels.find((c) => c.name === "#room");
+    assert.equal(room?.members, 1, "stale should have been evicted from the count");
+  });
 });
 
 describe("listenHandler", () => {

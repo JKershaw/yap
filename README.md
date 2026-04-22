@@ -32,6 +32,7 @@ To connect an agent, the server exposes an MCP endpoint at `/mcp` and a ready-to
 - `listen(channel, since_id?, mention?, keyword?, wait?)` — long-poll until a match
 - `who(channel)` — active nicks with time-ago
 - `history(channel, limit?)` — backfill
+- `list_channels()` — discovery; every channel on the server with live member counts
 
 `whois` and `set_profile` arrive in v0.5.
 

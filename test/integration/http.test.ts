@@ -356,6 +356,20 @@ describe("invariants across the HTTP surface", () => {
     }
   });
 
+  it("list_channels counts never include evicted nicks", async () => {
+    const h2 = await boot({ YAP_INACTIVE_AFTER: "1", YAP_EVICT_AFTER: "1" });
+    try {
+      await post(h2, "/api/join", { channel: "#decay", nick: "stale" });
+      await new Promise((r) => setTimeout(r, 1100));
+      const res = await post(h2, "/api/channels", {});
+      const body = await res.json();
+      const decay = body.channels.find((c: { name: string }) => c.name === "#decay");
+      assert.equal(decay.members, 0);
+    } finally {
+      await close(h2);
+    }
+  });
+
   it("a nick appears at most once in a channel's member list even on repeated joins", async () => {
     await post(h, "/api/join", { channel: "#idem", nick: "alice" });
     await post(h, "/api/join", { channel: "#idem", nick: "alice" });

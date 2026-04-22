@@ -233,9 +233,17 @@ export type ChannelSummary = { name: string; members: number };
 export function listChannelsHandler(
   store: Store,
 ): Result<{ channels: ChannelSummary[] }> {
+  const now = store.clock();
   const channels: ChannelSummary[] = [];
   for (const ch of store.channels.values()) {
-    channels.push({ name: ch.name, members: ch.members.size });
+    // Reuse the who/join eviction path so counts and who() can't disagree.
+    const active = listActiveMembers(
+      ch,
+      now,
+      store.config.inactiveAfterSec,
+      store.config.evictAfterSec,
+    );
+    channels.push({ name: ch.name, members: active.length });
   }
   channels.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
   return ok({ channels });

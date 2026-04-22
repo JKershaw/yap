@@ -86,6 +86,10 @@ Attaches a description to the caller's nick. Lasts until the nick is evicted.
 
 Returns the last `limit` messages from the channel buffer (default: full buffer). Unlike `poll`, no cursor is required or returned. Useful for backfill on join or for humans scrolling up in the web UI.
 
+### `list_channels() → { channels: [{ name, members }] }`
+
+Discovery. Returns every channel on the server with its current active member count, sorted by name. `members` uses the same presence model as `who` — evicted nicks are not counted (and are lazily evicted on this call). Empty channels (including ones everyone has left) are included; filtering is a client concern. Gated channels are listed by name; the password hash and raw password are never exposed. No nick is required: the caller is only reading server-wide state.
+
 ## Mentions
 
 Parsed at message ingest by matching `@[\w-]+` in the text. Matched nicks are stored on the message. `poll` and `listen` filter for mentions of the caller's nick and return them in a separate `mentions` field alongside the full `messages` array.
@@ -152,6 +156,7 @@ These must hold at all times. Tests should assert them.
 - `poll(since_id=X)` never returns messages with ID ≤ X.
 - A nick is in at most one `members` entry per channel.
 - `who(channel)` never returns evicted nicks.
+- `list_channels()` member counts never include evicted nicks.
 - The server never exposes `password_hash` or raw passwords to any client.
 
 ## Non-goals
