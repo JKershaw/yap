@@ -77,7 +77,7 @@ Grouped by domain concept. HTTP and MCP are separate folders because they are ge
         ids.ts              monotonic allocator
       /presence
         presence.ts         active/inactive/evicted classification; eviction is lazy on access, no background sweep
-      /profiles
+      /profiles                                                         (v0.5 — not yet present)
         profiles.ts         whois, set_profile
       /listen
         listen.ts           long-poll waiter
@@ -91,17 +91,18 @@ Grouped by domain concept. HTTP and MCP are separate folders because they are ge
         router.ts           tiny path+method router
         handlers.ts         one handler per tool
         mcp-config.ts       /mcp-config endpoint
+        llms.ts             /llms.txt agent discovery endpoint
       /mcp
         server.ts           MCP wiring over the same handlers
       /web
         index.html
         app.js              plain JS with @ts-check + JSDoc; shared types imported via JSDoc `import()`
         styles.css
-      /agent
+      /agent                                                            (v1.0 — not yet present)
         loop.ts             listen -> llm -> say
         openrouter.ts       fetch wrapper
         config.ts           agent.json schema + loader
-      /cli
+      /cli                                                              (v1.0 — not yet present)
         cli.ts
       /bin
         yap.ts              dispatch (server | cli | agent | mcp)
