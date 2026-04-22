@@ -7,14 +7,20 @@
 
 const POLL_INTERVAL_MS = 2000;
 const WHO_INTERVAL_MS = 10_000;
+const CACHE_LIMIT = 200;
+const MAX_RECONNECT_ATTEMPTS = 6;
 
 const state = {
   /** @type {string | null} */ nick: null,
   /** @type {string | null} */ channel: null,
   /** @type {string | null} */ password: null,
   /** @type {number} */ cursor: 0,
+  /** @type {Message[]} */ messages: [],
+  /** @type {"connected" | "reconnecting" | "failed"} */ connection: "connected",
+  /** @type {number} */ retryAttempt: 0,
   /** @type {ReturnType<typeof setInterval> | null} */ pollTimer: null,
   /** @type {ReturnType<typeof setInterval> | null} */ whoTimer: null,
+  /** @type {ReturnType<typeof setTimeout> | null} */ reconnectTimer: null,
 };
 
 const el = {
@@ -48,14 +54,16 @@ el.sayInput.addEventListener("keydown", (e) => {
   }
 });
 
-// Pre-fill nick from the cookie so a refresh doesn't kick the user out.
+// Pre-fill the landing form in case auto-resume fails or isn't available.
 const savedNick = readCookie("yap_nick");
 if (savedNick) {
   /** @type {HTMLInputElement} */ (el.joinForm.elements.namedItem("nick")).value = savedNick;
 }
-
 /** @type {HTMLInputElement} */ (el.joinForm.elements.namedItem("channel")).value =
   channelFromUrl() ?? "#general";
+
+// If there's a saved session, try to resume it before showing the landing.
+attemptAutoResume();
 
 /**
  * @param {Event} e
@@ -69,27 +77,49 @@ async function onJoin(e) {
   const channel = /^[#&]/.test(rawChannel) ? rawChannel : `#${rawChannel}`;
   const password = String(form.get("password") ?? "").trim() || null;
   if (!nick || !channel) return;
+  await enterChannel(nick, channel, password, /* showErrorsOnLanding= */ true);
+}
 
+/**
+ * Join a channel and switch the UI into chat mode. Used by both the landing
+ * form and the auto-resume flow.
+ * @param {string} nick
+ * @param {string} channel
+ * @param {string | null} password
+ * @param {boolean} showErrorsOnLanding
+ */
+async function enterChannel(nick, channel, password, showErrorsOnLanding) {
   const res = await api("/api/join", { nick, channel, password: password ?? undefined });
   if (!res.ok) {
-    setError(el.joinError, res.error);
-    return;
+    if (showErrorsOnLanding) setError(el.joinError, res.error);
+    return false;
   }
   state.nick = nick;
   state.channel = channel;
   state.password = password;
   state.cursor = typeof res.value.cursor === "number" ? res.value.cursor : 0;
+  saveSession(channel, password);
+  updateUrlHash(channel);
+
+  // Merge any locally-cached history with the server's recent buffer so a
+  // server restart doesn't visually wipe the user's view.
+  const cached = loadCache(channel);
+  const merged = mergeMessages(cached, res.value.recent ?? []);
+  state.messages = merged;
+  saveCache(channel, merged);
 
   el.channelLabel.textContent = channel;
   el.nickLabel.textContent = nick;
   el.messageList.innerHTML = "";
   el.aloneHint.hidden = true;
-  renderMessages(res.value.recent ?? [], /* markMentions= */ true);
+  renderMessages(merged, /* markMentions= */ true);
   show("chat");
   updateTitle();
+  setConnectionState("connected");
   el.sayInput.focus();
   startPolling();
   refreshWho();
+  return true;
 }
 
 /**
@@ -126,12 +156,20 @@ async function onSay(e) {
 
 async function onLeave() {
   if (!state.channel || !state.nick) return;
-  await api("/api/leave", { channel: state.channel, nick: state.nick });
+  const channel = state.channel;
+  await api("/api/leave", { channel, nick: state.nick });
   stopPolling();
+  cancelReconnect();
+  clearCache(channel);
+  clearSession();
+  clearUrlHash();
   state.cursor = 0;
   state.channel = null;
   state.nick = null;
   state.password = null;
+  state.messages = [];
+  state.retryAttempt = 0;
+  setConnectionState("connected");
   unreadMentions = 0;
   el.messageList.innerHTML = "";
   el.whoList.innerHTML = "";
@@ -155,15 +193,24 @@ function stopPolling() {
 
 async function pollOnce() {
   if (!state.channel || !state.nick) return;
+  if (state.connection === "reconnecting") return;
   const res = await api("/api/poll", {
     channel: state.channel,
     nick: state.nick,
     since_id: state.cursor,
   });
-  if (!res.ok) return;
+  if (!res.ok) {
+    onConnectionLost();
+    return;
+  }
+  if (state.connection !== "connected") {
+    setConnectionState("connected");
+    state.retryAttempt = 0;
+  }
   const messages = /** @type {Message[]} */ (res.value.messages ?? []);
   if (messages.length > 0) {
-    renderMessages(messages, /* markMentions= */ true);
+    const newOnes = ingestNew(messages);
+    if (newOnes.length > 0) renderMessages(newOnes, /* markMentions= */ true);
     state.cursor = res.value.cursor;
     const mentions = /** @type {Message[]} */ (res.value.mentions ?? []);
     if (document.hidden && mentions.length > 0) {
@@ -175,8 +222,15 @@ async function pollOnce() {
 
 async function refreshWho() {
   if (!state.channel || !state.nick) return;
+  if (state.connection === "reconnecting") return;
   const res = await api("/api/who", { channel: state.channel, nick: state.nick });
-  if (!res.ok) return;
+  if (!res.ok) {
+    // `who` returns 404 when the channel is gone (e.g. after a server restart).
+    // Poll silently succeeds in that case, so `who` is the canary that lets us
+    // notice and trigger a rejoin.
+    onConnectionLost();
+    return;
+  }
   renderWho(/** @type {Presence[]} */ (res.value.members ?? []));
 }
 
@@ -347,4 +401,255 @@ async function api(path, body) {
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
+}
+
+// ---------- Client-side persistence ----------
+// Messages are cached in localStorage per channel so a reload (or a server
+// restart during the session) doesn't visually wipe the user's history.
+// The server remains the source of truth; this is a UX convenience only.
+
+/** @param {string} channel */
+function cacheKey(channel) {
+  return `yap_cache:${channel}`;
+}
+
+/**
+ * @param {string} channel
+ * @returns {Message[]}
+ */
+function loadCache(channel) {
+  try {
+    const raw = localStorage.getItem(cacheKey(channel));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * @param {string} channel
+ * @param {Message[]} messages
+ */
+function saveCache(channel, messages) {
+  try {
+    const trimmed = messages.slice(-CACHE_LIMIT);
+    localStorage.setItem(cacheKey(channel), JSON.stringify(trimmed));
+  } catch {
+    // localStorage full or disabled — nothing to do.
+  }
+}
+
+/** @param {string} channel */
+function clearCache(channel) {
+  try { localStorage.removeItem(cacheKey(channel)); } catch {}
+}
+
+/**
+ * @param {string} channel
+ * @param {string | null} password
+ */
+function saveSession(channel, password) {
+  try {
+    sessionStorage.setItem(
+      "yap_session",
+      JSON.stringify({ channel, password: password ?? null }),
+    );
+  } catch {}
+}
+
+/** @returns {{ channel: string, password: string | null } | null} */
+function loadSession() {
+  try {
+    const raw = sessionStorage.getItem("yap_session");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed.channel !== "string") return null;
+    return { channel: parsed.channel, password: parsed.password ?? null };
+  } catch {
+    return null;
+  }
+}
+
+function clearSession() {
+  try { sessionStorage.removeItem("yap_session"); } catch {}
+}
+
+/** @param {string} channel */
+function updateUrlHash(channel) {
+  const name = channel.replace(/^[#&]/, "");
+  const next = `#${name}`;
+  if (location.hash !== next) {
+    history.replaceState(null, "", location.pathname + location.search + next);
+  }
+}
+
+function clearUrlHash() {
+  if (location.hash) {
+    history.replaceState(null, "", location.pathname + location.search);
+  }
+}
+
+/** @param {Message} m */
+function msgKey(m) {
+  // (id, timestamp) survives server restart — after a restart, the same id
+  // can be reused but the timestamp will be different, so we keep both
+  // messages rather than dropping one as a duplicate.
+  return `${m.id}:${m.timestamp}`;
+}
+
+/**
+ * Dedupe by (id, timestamp), sort by timestamp, keep the last CACHE_LIMIT.
+ * @param {Message[]} existing
+ * @param {Message[]} incoming
+ * @returns {Message[]}
+ */
+function mergeMessages(existing, incoming) {
+  const seen = new Set();
+  /** @type {Message[]} */ const out = [];
+  for (const m of existing) {
+    const k = msgKey(m);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(m);
+  }
+  for (const m of incoming) {
+    const k = msgKey(m);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(m);
+  }
+  out.sort((a, b) => a.timestamp - b.timestamp);
+  return out.slice(-CACHE_LIMIT);
+}
+
+/**
+ * Adds any genuinely-new messages to the in-memory list and persists the
+ * updated cache. Returns just the new ones so the caller can render them.
+ * @param {Message[]} msgs
+ * @returns {Message[]}
+ */
+function ingestNew(msgs) {
+  if (!msgs || msgs.length === 0) return [];
+  const known = new Set(state.messages.map(msgKey));
+  const newOnes = msgs.filter((m) => !known.has(msgKey(m)));
+  if (newOnes.length === 0) return [];
+  state.messages = mergeMessages(state.messages, newOnes);
+  if (state.channel) saveCache(state.channel, state.messages);
+  return newOnes;
+}
+
+// ---------- Connection state / reconnect ----------
+
+/** @param {"connected" | "reconnecting" | "failed"} s */
+function setConnectionState(s) {
+  state.connection = s;
+  el.nickLabel.dataset.conn = s;
+}
+
+function onConnectionLost() {
+  if (state.connection === "reconnecting" || state.connection === "failed") return;
+  setConnectionState("reconnecting");
+  scheduleReconnect();
+}
+
+function scheduleReconnect() {
+  cancelReconnect();
+  const delayMs = Math.min(2000 * Math.pow(2, state.retryAttempt), 15000);
+  state.retryAttempt++;
+  state.reconnectTimer = setTimeout(attemptReconnect, delayMs);
+}
+
+function cancelReconnect() {
+  if (state.reconnectTimer) {
+    clearTimeout(state.reconnectTimer);
+    state.reconnectTimer = null;
+  }
+}
+
+async function attemptReconnect() {
+  state.reconnectTimer = null;
+  if (!state.channel || !state.nick) return;
+  const res = await api("/api/join", {
+    channel: state.channel,
+    nick: state.nick,
+    password: state.password ?? undefined,
+  });
+  if (!res.ok) {
+    if (state.retryAttempt >= MAX_RECONNECT_ATTEMPTS) {
+      setConnectionState("failed");
+      return;
+    }
+    scheduleReconnect();
+    return;
+  }
+  state.retryAttempt = 0;
+  state.cursor = typeof res.value.cursor === "number" ? res.value.cursor : 0;
+  const recent = /** @type {Message[]} */ (res.value.recent ?? []);
+  const newOnes = ingestNew(recent);
+  if (newOnes.length > 0) renderMessages(newOnes, /* markMentions= */ true);
+  setConnectionState("connected");
+  // Covers the case where auto-resume failed its first join and we got here
+  // via the backoff loop without ever starting the poll intervals.
+  if (!state.pollTimer) {
+    startPolling();
+    refreshWho();
+  }
+}
+
+// ---------- Auto-resume on page load ----------
+
+async function attemptAutoResume() {
+  const nick = readCookie("yap_nick");
+  const session = loadSession();
+  if (!nick || !session) return;
+
+  state.nick = nick;
+  state.channel = session.channel;
+  state.password = session.password;
+
+  // Render cached messages immediately so the UI feels instant, even before
+  // the silent rejoin completes.
+  const cached = loadCache(session.channel);
+  state.messages = cached;
+  el.channelLabel.textContent = session.channel;
+  el.nickLabel.textContent = nick;
+  el.messageList.innerHTML = "";
+  if (cached.length > 0) renderMessages(cached, /* markMentions= */ true);
+  show("chat");
+  updateTitle();
+  setConnectionState("reconnecting");
+  updateUrlHash(session.channel);
+
+  const res = await api("/api/join", {
+    nick,
+    channel: session.channel,
+    password: session.password ?? undefined,
+  });
+  if (!res.ok) {
+    if (cached.length === 0) {
+      // Nothing cached and the server won't let us in — fall back to landing
+      // so the user can correct the password or pick a new channel.
+      clearSession();
+      state.nick = null;
+      state.channel = null;
+      state.password = null;
+      setConnectionState("connected");
+      show("landing");
+      setError(el.joinError, res.error);
+      return;
+    }
+    // Keep showing cached history while we back off and retry.
+    scheduleReconnect();
+    return;
+  }
+  state.cursor = typeof res.value.cursor === "number" ? res.value.cursor : 0;
+  const recent = /** @type {Message[]} */ (res.value.recent ?? []);
+  const newOnes = ingestNew(recent);
+  if (newOnes.length > 0) renderMessages(newOnes, /* markMentions= */ true);
+  setConnectionState("connected");
+  el.sayInput.focus();
+  startPolling();
+  refreshWho();
 }
