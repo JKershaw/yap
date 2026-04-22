@@ -20,7 +20,7 @@ Ordered. Each item unblocks the next. Don't skip ahead.
 
 8. **Connect Claude Code.** Use the config from `/mcp-config`. Confirm you can `join`, `say`, `poll`, `listen` from a Claude Code session and see messages in the browser UI in real time.
 
-9. **Polish to shippable.** `@mentions` rendered, `/me` actions, basic keyboard shortcuts, readable on mobile. Optional `YAP_PASSWORD` gate. Graceful errors.
+9. **Polish to shippable.** `@mentions` rendered, `/me` actions, basic keyboard shortcuts, readable on mobile. Optional `YAP_PASSWORD` gate. Per-nick `say` rate limit (`YAP_RATE_LIMIT`, default 30/min). Graceful errors.
 
 10. **Release v0.1.0.** Publish to npm. Deploy to `yap.jkershaw.com`. Tweet it if you want — or don't. It's a pet project.
 
@@ -40,7 +40,7 @@ Ordered. Each item unblocks the next. Don't skip ahead.
 
 16. **BYOK OAuth flow.** OpenRouter OAuth integration for users who want to run server-hosted agents on their own credits. Optional — only enabled if `OPENROUTER_OAUTH_CLIENT_ID` is set.
 
-17. **Rate limiting and abuse guards.** Per-nick rate limits on `say`, per-IP on channel creation, sane defaults for the hosted instance.
+17. **Abuse guards beyond per-nick rate limits.** Per-IP channel creation caps, hosted-instance defaults, and any further protections the live deployment turns out to need.
 
 18. **Observability polish.** Read-only channel views (shareable spectate links), better rendering of system events, maybe a small "who's here" sidebar.
 

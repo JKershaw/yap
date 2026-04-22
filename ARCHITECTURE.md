@@ -4,7 +4,7 @@ How yap is built. For what it does, see [DESIGN.md](./DESIGN.md). For why, see [
 
 ## Principles
 
-- **Fewest dependencies.** Builtins first. A new dependency needs a PR note explaining why a `node:` module or ~20 lines of code won't do.
+- **Lean dependencies.** Builtins first; reach for a safe, well-worn library when it eliminates a class of bugs or replaces meaningful hand-rolled code. Each dep gets a one-line justification.
 - **No build step.** Write `.ts`, run `.ts`. Node's type stripping gives us types without a compile stage.
 - **Comprehensive tests.** Unit, integration, API/MCP conformance, and e2e in a real browser.
 - **Clean, tidy abstractions.** Modules of functions over classes. Function signatures follow the domain, not a dogma.
@@ -12,30 +12,46 @@ How yap is built. For what it does, see [DESIGN.md](./DESIGN.md). For why, see [
 
 ## Runtime & tooling
 
-- **Node ≥ 22.6 with `--experimental-strip-types`** (or 23+ where it's default). Write `.ts`, run directly. No bundler, no `tsc` build, no `dist/`. `tsc --noEmit` is used in CI for type checking only.
+- **Node ≥ 22.6 with `--experimental-strip-types`** (or 23.6+ where it's unflagged). Write `.ts`, run directly. No bundler, no `tsc` build, no `dist/`. `tsc --noEmit` is used in CI for type checking only.
 - **ESM only.** `"type": "module"`, `.ts` on disk, Node resolves extensions.
 - **One `package.json`, one `bin` (`yap`)** dispatching to sub-commands (`yap cli`, `yap agent`, `yap mcp`) from a single entry file. Workspaces come later, if ever.
 
+### Type-stripping caveats
+
+Node strips TypeScript syntax; it does not transform semantics. Avoid the features that need real transpilation:
+
+- No `enum` — use `as const` objects or string literal unions.
+- No `namespace` — use modules.
+- No parameter properties (`constructor(private x: T)`) — we're not using classes anyway.
+- No experimental decorators.
+- `import` paths keep their real extensions (`./buffer.ts`, not `./buffer`).
+
+These are easy rules to live with; the one-paragraph constraint is worth the zero-build-step payoff.
+
 ## Dependencies
 
-Target: single-digit runtime count.
+Lean, but not dogmatic. A dep earns its place if it eliminates a class of bugs or replaces meaningful hand-rolled code. Each one gets a one-line justification in the PR that adds it.
 
 Runtime:
 
 - `@modelcontextprotocol/sdk` — can't reasonably hand-roll MCP.
-- `node:crypto` `scrypt` for password hashing — no bcrypt dep needed.
-- Plain `fetch` against OpenRouter for the agent runtime — no LLM SDK.
+- `zod` — schema validation at every trust boundary: HTTP request bodies, MCP tool arguments, `agent.json` configs, env-var parsing. Prevents a whole family of runtime bugs and doubles as documentation.
+- `pino` — structured JSON logs. Small, fast, widely used. Worth it for the hosted instance from day one.
+- `cookie` — parsing and serialising the nick cookie safely. Tiny and reliable.
 
-Everything else from `node:` builtins:
+From `node:` builtins, no dep needed:
 
 - `node:http` for the server (no Express/Fastify).
+- `node:crypto` `scrypt` for password hashing — covers the "bcrypt or similar" slot in `DESIGN.md`.
 - `node:test` + `node:assert` for unit/integration/API tests.
-- `node:crypto`, `node:timers/promises`, `node:stream` as needed.
+- `fetch` (global) against OpenRouter for the agent runtime — no LLM SDK.
+- `node:timers/promises`, `node:stream` as needed.
 
 Dev:
 
 - `typescript` (types only, no emit).
 - `@playwright/test` for e2e.
+- `@types/node`, `@types/cookie`.
 - `prettier` (optional).
 
 ## Code style
@@ -60,8 +76,7 @@ Grouped by domain concept. HTTP and MCP are separate folders because they are ge
         mentions.ts         parse + filter
         ids.ts              monotonic allocator
       /presence
-        presence.ts         active/inactive/evicted classification
-        sweep.ts            periodic eviction
+        presence.ts         active/inactive/evicted classification; eviction is lazy on access, no background sweep
       /profiles
         profiles.ts         whois, set_profile
       /listen
@@ -80,7 +95,7 @@ Grouped by domain concept. HTTP and MCP are separate folders because they are ge
         server.ts           MCP wiring over the same handlers
       /web
         index.html
-        app.js
+        app.js              plain JS with @ts-check + JSDoc; shared types imported via JSDoc `import()`
         styles.css
       /agent
         loop.ts             listen -> llm -> say
@@ -121,16 +136,16 @@ Unit tests live alongside the code (`buffer.ts` + `buffer.test.ts`). Integration
 
 Follows `TODO.md`.
 
-- **v0.1.0** lands `/src/channels`, `/src/messages`, `/src/presence`, `/src/profiles`, `/src/store`, `/src/http`, `/src/web`, plus unit + integration + a basic Playwright smoke test. MCP is added before shipping so Claude Code can connect.
+- **v0.1.0** lands `/src/channels`, `/src/messages`, `/src/presence`, `/src/listen`, `/src/ratelimit`, `/src/store`, `/src/http`, `/src/mcp`, `/src/web`, plus unit + integration + MCP conformance + a basic Playwright smoke test. `listen` is in from day one because reactive agents otherwise busy-poll, and per-nick `say` rate limiting goes in before the hosted instance opens.
 - **Live with it** phase: no new deps, no new abstractions. Notes only.
-- **v1.0.0** adds `/src/agent`, `/src/cli`, the web agent creator, OpenRouter BYOK OAuth, and rate limits. Each lands behind the test suites above before the next starts.
+- **v1.0.0** adds `/src/profiles` (`whois`, `set_profile`), `/src/agent`, `/src/cli`, the web agent creator, OpenRouter BYOK OAuth, and abuse guards beyond per-nick rate limits. Each lands behind the test suites above before the next starts.
 
 ## Guardrails
 
 - **No build step, ever.** If a tool requires compilation, it doesn't ship.
 - **No framework.** `node:http` plus a small router is enough. Keeping the whole server readable in one sitting is the product.
 - **No ORM, no DB.** State is a `Map`. Restart wipes it. That's the spec.
-- **No new dependency without a PR note** explaining why a builtin or ~20 lines won't do.
+- **No new dependency without a PR note** justifying it against builtins and the existing set.
 - **Philosophy veto.** Any feature that can't be implemented by a client polling and saying things gets reviewed against `PHILOSOPHY.md` before touching the server.
 
 The result is a ~1–2k LOC server that boots instantly, has no build artifacts, type-checks in editors, and whose test suite exercises it the way real clients do.

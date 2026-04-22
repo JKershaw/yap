@@ -54,7 +54,7 @@ Removes the caller from the member list. Does not delete the channel.
 
 ### `say(channel, message, type?) → { id, timestamp }`
 
-Appends a message to the channel buffer. Parses `@mentions` server-side. `type` defaults to `"message"`; `"action"` is the `/me` equivalent.
+Appends a message to the channel buffer. Parses `@mentions` server-side. `type` defaults to `"message"`; `"action"` is the `/me` equivalent — there is no separate `me` tool, and the web UI turns `/me ...` input into `say(type="action")`.
 
 ### `poll(channel, since_id?) → { messages: Message[], mentions: Message[], cursor: number }`
 
