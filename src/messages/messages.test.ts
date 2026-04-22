@@ -71,17 +71,41 @@ describe("messagesSince", () => {
     appendMessage(ch, "a", "2", "message");
     const { messages, truncated } = messagesSince(ch);
     assert.equal(messages.length, 2);
+    // buffer hasn't wrapped — nothing is missing
+    assert.equal(truncated, false);
+  });
+
+  it("flags truncated when the buffer has wrapped and sinceId is omitted", () => {
+    const ch = makeChannel(2);
+    appendMessage(ch, "a", "1", "message"); // id=1, evicted when id=3 arrives
+    appendMessage(ch, "a", "2", "message"); // id=2
+    appendMessage(ch, "a", "3", "message"); // id=3, buffer=[2,3]
+    const { messages, truncated } = messagesSince(ch);
+    assert.deepEqual(messages.map((m) => m.id), [2, 3]);
+    // id=1 was evicted; client asked from the beginning and missed it
     assert.equal(truncated, true);
   });
 
-  it("flags truncated when sinceId is older than the buffer's oldest", () => {
+  it("does not flag truncated when sinceId lands on the message just before oldest", () => {
     const ch = makeChannel(2);
-    appendMessage(ch, "a", "1", "message");
+    appendMessage(ch, "a", "1", "message"); // evicted
     appendMessage(ch, "a", "2", "message");
-    appendMessage(ch, "a", "3", "message");
-    // sinceId=1 is older than the oldest held (id=2), so truncated=true
+    appendMessage(ch, "a", "3", "message"); // buffer=[2,3], oldest=2
+    // sinceId=1: client wants > 1, oldest=2, no evicted message had id > 1
     const { messages, truncated } = messagesSince(ch, 1);
     assert.deepEqual(messages.map((m) => m.id), [2, 3]);
+    assert.equal(truncated, false);
+  });
+
+  it("flags truncated when an evicted message falls within the requested range", () => {
+    const ch = makeChannel(2);
+    appendMessage(ch, "a", "1", "message");
+    appendMessage(ch, "a", "2", "message"); // evicted when id=4 arrives
+    appendMessage(ch, "a", "3", "message");
+    appendMessage(ch, "a", "4", "message"); // buffer=[3,4], oldest=3
+    // sinceId=1: client wants > 1, but id=2 was evicted
+    const { messages, truncated } = messagesSince(ch, 1);
+    assert.deepEqual(messages.map((m) => m.id), [3, 4]);
     assert.equal(truncated, true);
   });
 

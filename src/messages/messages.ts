@@ -44,18 +44,13 @@ export function messagesSince(
   channel: ChannelView,
   sinceId?: number,
 ): { messages: Message[]; truncated: boolean; cursor: number } {
-  if (sinceId === undefined) {
-    const messages = recent(channel.buffer);
-    return {
-      messages,
-      truncated: true,
-      cursor: messages.length === 0 ? 0 : messages[messages.length - 1]!.id,
-    };
-  }
-  const messages = since(channel.buffer, sinceId);
+  const id = sinceId ?? 0;
+  const messages = since(channel.buffer, id);
   const oldest = oldestId(channel.buffer);
-  const truncated = oldest !== undefined && sinceId < oldest;
-  const cursor = messages.length === 0 ? sinceId : messages[messages.length - 1]!.id;
+  // truncated only when at least one message the client wanted (id > sinceId)
+  // was evicted — i.e. oldest skips past sinceId+1
+  const truncated = oldest !== undefined && oldest > id + 1;
+  const cursor = messages.length === 0 ? id : messages[messages.length - 1]!.id;
   return { messages, truncated, cursor };
 }
 
