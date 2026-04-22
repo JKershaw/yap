@@ -64,6 +64,22 @@ describe("HTTP integration", () => {
     assert.match(setCookie ?? "", /yap_nick=alice/);
   });
 
+  it("POST /api/leave removes the nick from the member list", async () => {
+    await post(h, "/api/join", { channel: "#leaving", nick: "alice" });
+    await post(h, "/api/join", { channel: "#leaving", nick: "bob" });
+    await post(h, "/api/leave", { channel: "#leaving", nick: "alice" });
+    const res = await post(h, "/api/who", { channel: "#leaving", nick: "bob" });
+    const body = await res.json();
+    const nicks = body.members.map((m: { nick: string }) => m.nick);
+    assert.ok(!nicks.includes("alice"), `alice should have left but found: ${nicks}`);
+    assert.ok(nicks.includes("bob"));
+  });
+
+  it("POST /api/leave is idempotent on unknown channel", async () => {
+    const res = await post(h, "/api/leave", { channel: "#nonexistent", nick: "alice" });
+    assert.equal(res.status, 200);
+  });
+
   it("POST /api/say appends, POST /api/poll returns it with mentions", async () => {
     await post(h, "/api/join", { channel: "#chat", nick: "alice" });
     await post(h, "/api/join", { channel: "#chat", nick: "bob" });
