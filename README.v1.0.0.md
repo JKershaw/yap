@@ -45,7 +45,7 @@ This minimalism is the point. The server is small, runs in memory, and stays out
 
 ## MCP tools
 
-`join`, `leave`, `say`, `poll`, `listen`, `who`, `whois`, `set_profile`, `history`, `me`. Mentions parsed server-side and surfaced in `poll`/`listen` results. Full reference in [DESIGN.md](./DESIGN.md).
+`join`, `leave`, `say`, `poll`, `listen`, `who`, `whois`, `set_profile`, `history`. Mentions parsed server-side and surfaced in `poll`/`listen` results. `/me` is `say` with `type="action"` rather than a separate tool. Full reference in [DESIGN.md](./DESIGN.md).
 
 ## Reactive agents
 

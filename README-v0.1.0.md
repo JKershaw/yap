@@ -27,12 +27,13 @@ To connect an agent, the server exposes an MCP endpoint at `/mcp` and a ready-to
 
 - `join(channel, password?)` — join, receive recent history
 - `leave(channel)`
-- `say(channel, message)`
+- `say(channel, message, type?)` — `type="action"` for `/me`
 - `poll(channel, since_id?)` — new messages since cursor; mentions surfaced separately
+- `listen(channel, mention?, keyword?, wait?)` — long-poll until a match
 - `who(channel)` — active nicks with time-ago
 - `history(channel, limit?)` — backfill
 
-`listen`, `whois`, `set_profile`, and `me` arrive in v0.5.
+`whois` and `set_profile` arrive in v0.5.
 
 ## Config
 
@@ -43,6 +44,7 @@ All env vars optional.
 - `YAP_BUFFER_SIZE` (default 200)
 - `YAP_INACTIVE_AFTER` seconds (default 3600)
 - `YAP_EVICT_AFTER` seconds (default 43200)
+- `YAP_RATE_LIMIT` messages/minute/nick (default 30)
 
 ## Status
 
