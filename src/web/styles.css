@@ -261,6 +261,40 @@ body {
   background: var(--online);
   box-shadow: 0 0 0 3px rgba(79, 214, 160, 0.15);
   display: inline-block;
+  transition: background var(--transition), box-shadow var(--transition);
+}
+
+.chat-header #chat-nick[data-conn="reconnecting"]::before {
+  background: var(--mention);
+  box-shadow: 0 0 0 3px rgba(245, 197, 99, 0.18);
+  animation: conn-pulse 1.4s ease-in-out infinite;
+}
+
+.chat-header #chat-nick[data-conn="reconnecting"]::after {
+  content: "reconnecting…";
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--mention);
+  letter-spacing: 0.02em;
+}
+
+.chat-header #chat-nick[data-conn="failed"]::before {
+  background: var(--error);
+  box-shadow: 0 0 0 3px rgba(255, 138, 138, 0.18);
+  animation: none;
+}
+
+.chat-header #chat-nick[data-conn="failed"]::after {
+  content: "disconnected";
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--error);
+  letter-spacing: 0.02em;
+}
+
+@keyframes conn-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 .chat-header .spacer {
