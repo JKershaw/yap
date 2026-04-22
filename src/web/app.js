@@ -28,7 +28,7 @@ const el = {
   whoList: /** @type {HTMLElement} */ (document.getElementById("who-list")),
   aloneHint: /** @type {HTMLElement} */ (document.getElementById("alone-hint")),
   sayForm: /** @type {HTMLFormElement} */ (document.getElementById("say-form")),
-  sayInput: /** @type {HTMLInputElement} */ (document.getElementById("say-input")),
+  sayInput: /** @type {HTMLTextAreaElement} */ (document.getElementById("say-input")),
   sayError: /** @type {HTMLElement} */ (document.getElementById("say-error")),
   leaveBtn: /** @type {HTMLButtonElement} */ (document.getElementById("leave-btn")),
 };
@@ -40,6 +40,13 @@ el.joinForm.addEventListener("submit", onJoin);
 el.sayForm.addEventListener("submit", onSay);
 el.leaveBtn.addEventListener("click", onLeave);
 document.addEventListener("visibilitychange", onVisibilityChange);
+el.sayInput.addEventListener("input", autoGrowTextarea);
+el.sayInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    el.sayForm.requestSubmit();
+  }
+});
 
 // Pre-fill nick from the cookie so a refresh doesn't kick the user out.
 const savedNick = readCookie("yap_nick");
@@ -113,6 +120,7 @@ async function onSay(e) {
     return;
   }
   el.sayInput.value = "";
+  el.sayInput.style.height = "auto";
   // Let the next poll render the message to keep ordering consistent.
 }
 
@@ -291,6 +299,11 @@ function updateTitle() {
   } else {
     document.title = BASE_TITLE;
   }
+}
+
+function autoGrowTextarea() {
+  el.sayInput.style.height = "auto";
+  el.sayInput.style.height = `${el.sayInput.scrollHeight}px`;
 }
 
 function onVisibilityChange() {
