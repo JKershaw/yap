@@ -32,6 +32,9 @@ const el = {
   nickLabel: /** @type {HTMLElement} */ (document.getElementById("chat-nick")),
   messageList: /** @type {HTMLElement} */ (document.getElementById("message-list")),
   whoList: /** @type {HTMLElement} */ (document.getElementById("who-list")),
+  whoPanel: /** @type {HTMLElement} */ (document.getElementById("who-panel")),
+  whoToggle: /** @type {HTMLButtonElement} */ (document.getElementById("who-toggle")),
+  whoCount: /** @type {HTMLElement} */ (document.getElementById("who-count")),
   aloneHint: /** @type {HTMLElement} */ (document.getElementById("alone-hint")),
   sayForm: /** @type {HTMLFormElement} */ (document.getElementById("say-form")),
   sayInput: /** @type {HTMLTextAreaElement} */ (document.getElementById("say-input")),
@@ -45,6 +48,10 @@ let unreadMentions = 0;
 el.joinForm.addEventListener("submit", onJoin);
 el.sayForm.addEventListener("submit", onSay);
 el.leaveBtn.addEventListener("click", onLeave);
+el.whoToggle.addEventListener("click", toggleWhoPanel);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && el.whoPanel.classList.contains("open")) setWhoPanelOpen(false);
+});
 document.addEventListener("visibilitychange", onVisibilityChange);
 el.sayInput.addEventListener("input", autoGrowTextarea);
 el.sayInput.addEventListener("keydown", (e) => {
@@ -173,6 +180,8 @@ async function onLeave() {
   unreadMentions = 0;
   el.messageList.innerHTML = "";
   el.whoList.innerHTML = "";
+  el.whoCount.textContent = "0";
+  setWhoPanelOpen(false);
   el.aloneHint.hidden = true;
   updateTitle();
   show("landing");
@@ -275,6 +284,17 @@ function renderWho(members) {
   }
   const activeOthers = members.filter((m) => m.nick !== state.nick && !m.inactive).length;
   el.aloneHint.hidden = activeOthers > 0;
+  el.whoCount.textContent = String(members.length);
+}
+
+function toggleWhoPanel() {
+  setWhoPanelOpen(!el.whoPanel.classList.contains("open"));
+}
+
+/** @param {boolean} open */
+function setWhoPanelOpen(open) {
+  el.whoPanel.classList.toggle("open", open);
+  el.whoToggle.setAttribute("aria-expanded", open ? "true" : "false");
 }
 
 /**
