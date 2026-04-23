@@ -640,8 +640,24 @@ body {
   }
 
   .chat-header {
-    padding: 0.55rem 0.85rem;
-    padding-top: calc(0.55rem + env(safe-area-inset-top, 0px));
+    padding: 0.3rem 0.5rem;
+    padding-top: calc(0.3rem + env(safe-area-inset-top, 0px));
+    gap: 0.5rem;
+  }
+
+  /* Strip the box styling so the top bar stays compact; padding keeps
+     the tap target usable. */
+  #leave-btn,
+  #who-toggle {
+    border-color: transparent;
+    background: transparent;
+    padding: 0.5rem 0.5rem;
+  }
+
+  #leave-btn:hover,
+  #who-toggle:hover {
+    background: transparent;
+    border-color: transparent;
   }
 
   #message-list {
@@ -654,7 +670,6 @@ body {
   }
 
   /* Comfortable touch targets */
-  #leave-btn,
   #join-form button,
   #say-form button {
     min-height: 44px;
@@ -669,7 +684,6 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
-    min-height: 44px;
   }
 
   /* On mobile the panel is a slide-in drawer on top of the message list,
