@@ -14,7 +14,7 @@ How yap is built. For what it does, see [DESIGN.md](./DESIGN.md). For why, see [
 
 - **Node ≥ 22.6 with `--experimental-strip-types`** (or 23.6+ where it's unflagged). Write `.ts`, run directly. No bundler, no `tsc` build, no `dist/`. `tsc --noEmit` is used in CI for type checking only.
 - **ESM only.** `"type": "module"`, `.ts` on disk, Node resolves extensions.
-- **One `package.json`, one `bin` (`yap`)** dispatching to sub-commands (`yap cli`, `yap agent`, `yap mcp`) from a single entry file. Workspaces come later, if ever.
+- **One `package.json`, one `bin` (`yap`)** dispatching to sub-commands (`yap cli`, `yap mcp`) from a single entry file. No `yap agent` — agent runtimes live in the [yap-agents](https://github.com/jkershaw/yap-agents) repo, not in this one. Workspaces come later, if ever.
 
 ### Type-stripping caveats
 
@@ -44,8 +44,9 @@ From `node:` builtins, no dep needed:
 - `node:http` for the server (no Express/Fastify).
 - `node:crypto` `scrypt` for password hashing — covers the "bcrypt or similar" slot in `DESIGN.md`.
 - `node:test` + `node:assert` for unit/integration/API tests.
-- `fetch` (global) against OpenRouter for the agent runtime — no LLM SDK.
 - `node:timers/promises`, `node:stream` as needed.
+
+(yap itself makes no outbound LLM calls — there's no agent runtime here. LLM SDKs, `fetch` against model providers, and anything else an agent needs live in the consuming agent's repo, not this one.)
 
 Dev:
 
@@ -98,11 +99,7 @@ Grouped by domain concept. HTTP and MCP are separate folders because they are ge
         index.html
         app.js              plain JS with @ts-check + JSDoc; shared types imported via JSDoc `import()`
         styles.css
-      /agent                                                            (v1.0 — not yet present)
-        loop.ts             listen -> llm -> say
-        openrouter.ts       fetch wrapper
-        config.ts           agent.json schema + loader
-      /cli                                                              (v1.0 — not yet present)
+      /cli                                                              (v0.3 — not yet present)
         cli.ts
       /bin
         yap.ts              dispatch (server | cli | agent | mcp)
@@ -131,7 +128,7 @@ Unit tests live alongside the code (`buffer.ts` + `buffer.test.ts`). Integration
 - `ARCHITECTURE.md` (this file) covers the build and code-organisation decisions.
 - Per-module header comments only where the "why" is non-obvious (e.g. why `listen` uses an `AbortController` rather than `setTimeout` chains). Identifiers carry the "what".
 - JSDoc on exported functions so editors render signatures. No doc site.
-- `examples/` holds a hand-rolled `planner.json` agent config, referenced from the README.
+- Agent examples live in the sibling [yap-agents](https://github.com/jkershaw/yap-agents) repo rather than an `examples/` dir in-tree — agents are separate projects with their own deps, languages, and release cadences.
 
 ## Milestone mapping
 
@@ -139,8 +136,12 @@ Follows `TODO.md`.
 
 - **v0.1.0** lands `/src/channels`, `/src/messages`, `/src/presence`, `/src/listen`, `/src/ratelimit`, `/src/store`, `/src/http`, `/src/mcp`, `/src/web`, plus unit + integration + MCP conformance + a basic Playwright smoke test. `listen` is in from day one because reactive agents otherwise busy-poll, and per-nick `say` rate limiting goes in before the hosted instance opens.
 - **Live with it** phase: no new deps, no new abstractions. Notes only.
-- **v0.5.0** adds `/src/profiles` (`whois`, `set_profile`). Small, additive, uses the existing HTTP + MCP plumbing.
-- **v1.0.0** adds `/src/agent`, `/src/cli`, the web agent creator, OpenRouter BYOK OAuth, and abuse guards beyond per-nick rate limits. Each lands behind the test suites above before the next starts.
+- **v0.2.0** is docs-only in this repo. Adds `AGENTS.md` (canonical dev guide for building agents), a README section linking the sibling [yap-agents](https://github.com/jkershaw/yap-agents) directory, and a `/llms.txt` pointer. No new modules.
+- **v0.3.0** adds `/src/cli` — a terminal human client against the HTTP API.
+- **v0.4.0** adds `/src/profiles` (`whois`, `set_profile`). Small, additive, uses the existing HTTP + MCP plumbing.
+- **v0.5.0** adds a web UI form that emits an agent config blob consumable by an agent from `yap-agents`. Server-hosted execution is deferred by default — running arbitrary agent code in the broker is the "runtime in-tree" drift we're avoiding.
+- **v0.7.0** adds abuse guards beyond per-nick rate limits, plus small observability polish.
+- **v1.0.0** is a release-gate, not a feature. Everything has lived on the hosted instance for long enough.
 
 ## Guardrails
 
