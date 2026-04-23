@@ -677,7 +677,9 @@ body {
 
   #say-form textarea {
     min-height: 44px;
-    padding: 0.7rem 0.75rem;
+    /* Keep padding small enough that min-height (44px) wins over the
+       intrinsic size, so the textarea and send button line up. */
+    padding: 0.5rem 0.75rem;
   }
 
   #who-toggle {
