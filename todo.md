@@ -35,81 +35,86 @@ Ordered. Each item unblocks the next. Don't skip ahead.
 - Split `src/http/server.ts` (310 lines) into `server.ts` + `auth.ts` once another feature bumps it.
 - Add structured logging (pino) once the hosted instance has a reason to need it; until then, `console.error` is enough. Dep is intentionally not shipped in v0.1.0.
 
-## v0.2.0 — reactive agent runtime
+## v0.2.0 — agent integration, documented
 
-The biggest philosophy-validator: proves agents are clients. Once this lands, the repo has example agents to point at whenever someone asks for a plugin system.
+The biggest philosophy-validator: proves agents are clients by making the integration route explicit and pointing at a sibling repo where agents actually live. No runtime ships in yap — that would bias toward one agent shape and invite the framework drift PHILOSOPHY.md warns about. See `rejected-ideas.md` → "Bundled agent runtime" for the reasoning.
 
-13. **Reactive agent runtime.** `yap agent --config agent.json` as a new bin entry. Implements the listen-loop → LLM → say cycle. OpenRouter only to start. `agent.json` schema in `/src/agent/config.ts`, loop in `/src/agent/loop.ts`, fetch wrapper in `/src/agent/openrouter.ts`.
+13. **Write `AGENTS.md`.** Canonical dev guide: HTTP-first minimal reactive loop, MCP as the equal-footed second option, patterns beyond the reactive loop (deterministic, CLI wrappers, read-only mirrors, schedulers, bridges), state to track, edge cases. One runnable example in ≤40 lines.
 
-14. **Ship an example.** A hand-rolled `examples/planner.json` referenced from the README. Enough to run `yap agent --config examples/planner.json` and see it join a channel, respond to mentions, and leave cleanly on Ctrl-C.
+14. **Add an "Agents" section to `README.md`.** Short, links `AGENTS.md` and the `yap-agents` repo.
 
-15. **Tests.** Unit coverage for the loop's state transitions (with a stub LLM). Integration coverage starting a real agent against a real server on ephemeral ports. No network-touching tests.
+15. **Add a pointer from `/llms.txt`.** Agents discovering the server at runtime should be able to find `AGENTS.md` without guessing.
 
-16. **Release v0.2.0.** Bump version, publish, update the hosted instance, add an "Agents" section to the README.
+16. **Seed the `yap-agents` repo.** Separate repo with its own README. At least three diverse examples at launch so the directory proves the shape supports more than reactive LLM agents:
+    - `planner` — reactive, OpenRouter-backed (the original v0.2.0 example).
+    - A deterministic one — `dice` or `echo`, no LLM, ~30 lines.
+    - `claude-code` — spawns `claude` CLI on mention, streams output back via `say`.
+
+17. **Release v0.2.0.** Bump version, publish, update the hosted instance, link `yap-agents` prominently. No new code in yap itself beyond docs.
 
 ## v0.3.0 — CLI client
 
-Small, independent, good dogfooding for anyone who doesn't want a browser tab open. Could slip to later if v0.2 turns up runtime work that needs finishing.
+Small, independent, good dogfooding for anyone who doesn't want a browser tab open.
 
-17. **CLI client.** `yap cli` as another bin entry. Terminal chat client against any server URL. Reads from stdin, renders incoming messages with the same presence/mention conventions as the web UI. Uses the HTTP API, not MCP — it's a human client.
+18. **CLI client.** `yap cli` as another bin entry. Terminal chat client against any server URL. Reads from stdin, renders incoming messages with the same presence/mention conventions as the web UI. Uses the HTTP API, not MCP — it's a human client.
 
-18. **Tests.** Integration coverage against the real server; snapshot the rendered output for a scripted conversation.
+19. **Tests.** Integration coverage against the real server; snapshot the rendered output for a scripted conversation.
 
-19. **Release v0.3.0.**
+20. **Release v0.3.0.**
 
 ## v0.4.0 — profiles
 
 Small and additive. Lands here rather than earlier because `set_profile` is most useful when agents exist to call it on boot; `whois` is most interesting when there's a mix of humans and agents in a channel.
 
-20. **Add `/src/profiles`.** `whois(nick)` and `set_profile(description)` as defined in `DESIGN.md`. Description lives on the nick and is evicted with it. Wire into HTTP and MCP handlers alongside the existing tools.
+21. **Add `/src/profiles`.** `whois(nick)` and `set_profile(description)` as defined in `DESIGN.md`. Description lives on the nick and is evicted with it. Wire into HTTP and MCP handlers alongside the existing tools.
 
-21. **Tests.** Unit coverage for the module; integration coverage for `set_profile` then `whois` across channels; MCP conformance for both tools.
+22. **Tests.** Unit coverage for the module; integration coverage for `set_profile` then `whois` across channels; MCP conformance for both tools.
 
-22. **Agent runtime integration.** The agent loop calls `set_profile` on startup using the description from `agent.json` so `whois` returns something useful immediately.
+23. **Document the startup pattern.** `AGENTS.md` picks up a "call `set_profile` on start" recommendation. `yap-agents` examples are updated to follow it. No code change in yap beyond the tool itself.
 
-23. **Release v0.4.0.** Add the two tools to the README tool list.
+24. **Release v0.4.0.** Add the two tools to the README tool list.
 
 ## v0.5.0 — web-based agent creator
 
-Depends on v0.2's runtime. In-browser form, server-hosted execution when `OPENROUTER_KEY` is set, otherwise falls back to generating a downloadable `agent.json`.
+Depends on the `yap-agents` ecosystem: the creator is a frontend for producing agent configs that a chosen downstream agent can consume.
 
-24. **Web agent creator UI.** Form in the web UI: name, description, channels, system prompt, model. Mirrors the `agent.json` schema exactly so the server-hosted and downloadable paths produce identical configs.
+25. **Web agent creator UI.** Form in the web UI: name, description, channels, system prompt, model. Outputs a JSON blob matching the schema of a chosen `yap-agents` agent (`planner` to start).
 
-25. **Server-hosted agents.** When `OPENROUTER_KEY` is set, spin up an in-process agent using the v0.2 runtime with isolated state per agent. From the protocol's perspective, server-hosted and locally-run agents are indistinguishable.
+26. **Downloadable output.** The form returns the blob as a download. Running it is the user's job — `npx @jkershaw/yap-agent-planner --config downloaded.json` or equivalent.
 
-26. **Downloadable fallback.** When no key is set, the form returns an `agent.json` blob the user can run locally with `yap agent`.
+27. **Server-hosted execution — deferred by default.** Running agents in-process on the broker re-introduces the "yap is a runtime" drift this release cycle is trying to avoid. Revisit only if the hosted instance clearly needs it and a sandboxed path exists.
 
-27. **Tests.** E2e coverage for both paths. Integration coverage for the create → listen → say cycle end-to-end on the server-hosted path.
+28. **Tests.** E2e coverage: fill the form, download the config, assert the blob matches the consuming agent's schema.
 
-28. **Release v0.5.0.**
+29. **Release v0.5.0.**
 
 ## v0.6.0 — BYOK OAuth
 
-Only meaningful once the web creator exists. Optional — only enabled if `OPENROUTER_OAUTH_CLIENT_ID` is set.
+Only meaningful if v0.5 ships server-hosted execution (item 27). Skip this release entirely if it didn't.
 
-29. **OpenRouter OAuth integration.** Standard OAuth flow, tokens stored in-memory per nick, evicted with the nick. Server-hosted agents use the creator's token rather than the server's `OPENROUTER_KEY`.
+30. **OpenRouter OAuth integration.** Standard OAuth flow, tokens stored in-memory per nick, evicted with the nick. Only relevant if the server runs agents on the user's behalf.
 
-30. **Tests.** Integration coverage with a stub OAuth provider. Assert tokens never leak across nicks and never appear in logs.
+31. **Tests.** Integration coverage with a stub OAuth provider. Assert tokens never leak across nicks and never appear in logs.
 
-31. **Release v0.6.0.**
+32. **Release v0.6.0** — or fold the release number into v0.7 if this one is skipped.
 
 ## v0.7.0 — abuse guards and observability
 
 Everything the live deployment has taught us by now. Scope is deliberately soft because the right list is whatever the hosted instance actually needs.
 
-32. **Abuse guards beyond per-nick rate limits.** Per-IP channel creation caps, hosted-instance defaults, and any further protections the live deployment turns out to need.
+33. **Abuse guards beyond per-nick rate limits.** Per-IP channel creation caps, hosted-instance defaults, and any further protections the live deployment turns out to need.
 
-33. **Observability polish.** Read-only channel views (shareable spectate links), better rendering of system events, maybe a small "who's here" sidebar.
+34. **Observability polish.** Read-only channel views (shareable spectate links), better rendering of system events, maybe a small "who's here" sidebar.
 
-34. **Admin endpoints.** `POST /admin/purge` and `POST /admin/block` behind `YAP_ADMIN_TOKEN`, per the rejected-ideas doc. Curl-only, no UI.
+35. **Admin endpoints.** `POST /admin/purge` and `POST /admin/block` behind `YAP_ADMIN_TOKEN`, per the rejected-ideas doc. Curl-only, no UI.
 
-35. **Release v0.7.0.**
+36. **Release v0.7.0.**
 
 ## v1.0.0 — we've lived with all of it
 
 No new features. The bar is: the hosted instance has been running for long enough, with enough real use, that the maintainer can call it done without flinching.
 
-36. **Release v1.0.0.** Update the README. Tag the release. Write a short blog post if the mood strikes.
+37. **Release v1.0.0.** Update the README. Tag the release. Write a short blog post if the mood strikes.
 
 ## Never
 
