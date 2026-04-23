@@ -28,36 +28,88 @@ Ordered. Each item unblocks the next. Don't skip ahead.
 
 11. **Use it for real.** A week or two. Notice what's missing, what's annoying, what you reach for that isn't there. Do not add features during this phase — just note them.
 
-12. **Re-read `PHILOSOPHY.md`.** Cut any noted features that don't survive the re-read.
+12. **Re-read `PHILOSOPHY.md`.** Cut any noted features that don't survive the re-read. This gate repeats between every minor release.
 
 ### v0.1.0 housekeeping carried over
 
 - Split `src/http/server.ts` (310 lines) into `server.ts` + `auth.ts` once another feature bumps it.
 - Add structured logging (pino) once the hosted instance has a reason to need it; until then, `console.error` is enough. Dep is intentionally not shipped in v0.1.0.
 
-## v0.5.0 — profiles
+## v0.2.0 — reactive agent runtime
 
-13. **Add `/src/profiles`.** `whois(nick)` and `set_profile(description)` as defined in `DESIGN.md`. Description lives on the nick and is evicted with it. Wire into HTTP and MCP handlers alongside the existing tools.
+The biggest philosophy-validator: proves agents are clients. Once this lands, the repo has example agents to point at whenever someone asks for a plugin system.
 
-14. **Tests.** Unit coverage for the module; integration coverage for `set_profile` then `whois` across channels; MCP conformance for both tools.
+13. **Reactive agent runtime.** `yap agent --config agent.json` as a new bin entry. Implements the listen-loop → LLM → say cycle. OpenRouter only to start. `agent.json` schema in `/src/agent/config.ts`, loop in `/src/agent/loop.ts`, fetch wrapper in `/src/agent/openrouter.ts`.
 
-15. **Release v0.5.0.** Bump version, publish, update the hosted instance. Add the two tools to the README tool list.
+14. **Ship an example.** A hand-rolled `examples/planner.json` referenced from the README. Enough to run `yap agent --config examples/planner.json` and see it join a channel, respond to mentions, and leave cleanly on Ctrl-C.
 
-## v1.0.0 — fill out the vision
+15. **Tests.** Unit coverage for the loop's state transitions (with a stub LLM). Integration coverage starting a real agent against a real server on ephemeral ports. No network-touching tests.
 
-16. **Reactive agent runtime.** `yap agent --config agent.json` as a new bin entry. Implements the listen-loop → LLM → say cycle. OpenRouter only to start. Test with a hand-rolled `planner.json`.
+16. **Release v0.2.0.** Bump version, publish, update the hosted instance, add an "Agents" section to the README.
 
-17. **CLI client.** `yap cli` as another bin entry. Terminal chat client against any server URL. Nice-to-have, not critical — skip if time-constrained.
+## v0.3.0 — CLI client
 
-18. **Web-based agent creator.** Form in the web UI: name, description, channels, system prompt, model. On submit, if `OPENROUTER_KEY` is set, spin up an in-process agent using the same runtime. If not, generate a downloadable `agent.json` the user can run locally with `yap agent`.
+Small, independent, good dogfooding for anyone who doesn't want a browser tab open. Could slip to later if v0.2 turns up runtime work that needs finishing.
 
-19. **BYOK OAuth flow.** OpenRouter OAuth integration for users who want to run server-hosted agents on their own credits. Optional — only enabled if `OPENROUTER_OAUTH_CLIENT_ID` is set.
+17. **CLI client.** `yap cli` as another bin entry. Terminal chat client against any server URL. Reads from stdin, renders incoming messages with the same presence/mention conventions as the web UI. Uses the HTTP API, not MCP — it's a human client.
 
-20. **Abuse guards beyond per-nick rate limits.** Per-IP channel creation caps, hosted-instance defaults, and any further protections the live deployment turns out to need.
+18. **Tests.** Integration coverage against the real server; snapshot the rendered output for a scripted conversation.
 
-21. **Observability polish.** Read-only channel views (shareable spectate links), better rendering of system events, maybe a small "who's here" sidebar.
+19. **Release v0.3.0.**
 
-22. **Release v1.0.0.** Update the README. Tag the release. Write a short blog post if the mood strikes.
+## v0.4.0 — profiles
+
+Small and additive. Lands here rather than earlier because `set_profile` is most useful when agents exist to call it on boot; `whois` is most interesting when there's a mix of humans and agents in a channel.
+
+20. **Add `/src/profiles`.** `whois(nick)` and `set_profile(description)` as defined in `DESIGN.md`. Description lives on the nick and is evicted with it. Wire into HTTP and MCP handlers alongside the existing tools.
+
+21. **Tests.** Unit coverage for the module; integration coverage for `set_profile` then `whois` across channels; MCP conformance for both tools.
+
+22. **Agent runtime integration.** The agent loop calls `set_profile` on startup using the description from `agent.json` so `whois` returns something useful immediately.
+
+23. **Release v0.4.0.** Add the two tools to the README tool list.
+
+## v0.5.0 — web-based agent creator
+
+Depends on v0.2's runtime. In-browser form, server-hosted execution when `OPENROUTER_KEY` is set, otherwise falls back to generating a downloadable `agent.json`.
+
+24. **Web agent creator UI.** Form in the web UI: name, description, channels, system prompt, model. Mirrors the `agent.json` schema exactly so the server-hosted and downloadable paths produce identical configs.
+
+25. **Server-hosted agents.** When `OPENROUTER_KEY` is set, spin up an in-process agent using the v0.2 runtime with isolated state per agent. From the protocol's perspective, server-hosted and locally-run agents are indistinguishable.
+
+26. **Downloadable fallback.** When no key is set, the form returns an `agent.json` blob the user can run locally with `yap agent`.
+
+27. **Tests.** E2e coverage for both paths. Integration coverage for the create → listen → say cycle end-to-end on the server-hosted path.
+
+28. **Release v0.5.0.**
+
+## v0.6.0 — BYOK OAuth
+
+Only meaningful once the web creator exists. Optional — only enabled if `OPENROUTER_OAUTH_CLIENT_ID` is set.
+
+29. **OpenRouter OAuth integration.** Standard OAuth flow, tokens stored in-memory per nick, evicted with the nick. Server-hosted agents use the creator's token rather than the server's `OPENROUTER_KEY`.
+
+30. **Tests.** Integration coverage with a stub OAuth provider. Assert tokens never leak across nicks and never appear in logs.
+
+31. **Release v0.6.0.**
+
+## v0.7.0 — abuse guards and observability
+
+Everything the live deployment has taught us by now. Scope is deliberately soft because the right list is whatever the hosted instance actually needs.
+
+32. **Abuse guards beyond per-nick rate limits.** Per-IP channel creation caps, hosted-instance defaults, and any further protections the live deployment turns out to need.
+
+33. **Observability polish.** Read-only channel views (shareable spectate links), better rendering of system events, maybe a small "who's here" sidebar.
+
+34. **Admin endpoints.** `POST /admin/purge` and `POST /admin/block` behind `YAP_ADMIN_TOKEN`, per the rejected-ideas doc. Curl-only, no UI.
+
+35. **Release v0.7.0.**
+
+## v1.0.0 — we've lived with all of it
+
+No new features. The bar is: the hosted instance has been running for long enough, with enough real use, that the maintainer can call it done without flinching.
+
+36. **Release v1.0.0.** Update the README. Tag the release. Write a short blog post if the mood strikes.
 
 ## Never
 
