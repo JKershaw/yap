@@ -301,7 +301,8 @@ body {
   flex: 1;
 }
 
-#leave-btn {
+#leave-btn,
+#who-toggle {
   background: transparent;
   color: var(--muted);
   padding: 0.3rem 0.65rem;
@@ -314,10 +315,21 @@ body {
     background var(--transition);
 }
 
-#leave-btn:hover {
+#leave-btn:hover,
+#who-toggle:hover {
   color: var(--fg);
   border-color: var(--border-strong);
   background: var(--bg-hover);
+}
+
+/* Toggle is only needed on mobile, where the who panel collapses to a drawer. */
+#who-toggle {
+  display: none;
+}
+
+#who-count {
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- Chat: body ---------- */
@@ -326,6 +338,7 @@ body {
   flex: 1 1 auto;
   display: flex;
   min-height: 0;
+  position: relative;
 }
 
 .chat-main {
@@ -652,8 +665,30 @@ body {
     padding: 0.7rem 0.75rem;
   }
 
+  #who-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 44px;
+  }
+
+  /* On mobile the panel is a slide-in drawer on top of the message list,
+     anchored inside .chat-body so it doesn't cover the header or input row. */
   #who-panel {
-    display: none;
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(70%, 260px);
+    border-left: 1px solid var(--border);
+    transform: translateX(100%);
+    transition: transform 180ms ease;
+    box-shadow: -6px 0 18px rgba(0, 0, 0, 0.35);
+    z-index: 5;
+  }
+
+  #who-panel.open {
+    transform: translateX(0);
   }
 }
 
