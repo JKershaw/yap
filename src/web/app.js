@@ -5,20 +5,6 @@
  * @typedef {{ nick: string, last_seen_seconds_ago: number, inactive: boolean }} Presence
  */
 
-// Drive body height from the visual viewport. `100dvh` is meant to track the
-// keyboard on mobile, but Safari and some Chromium states leave the dvh value
-// stale after the keyboard retracts, which leaves a blank strip under the
-// input row. `visualViewport.height` is reliably updated on every keyboard
-// show/hide, URL-bar show/hide, and orientation change.
-function updateAppHeight() {
-  const h = window.visualViewport?.height ?? window.innerHeight;
-  document.documentElement.style.setProperty("--app-height", `${h}px`);
-}
-updateAppHeight();
-window.visualViewport?.addEventListener("resize", updateAppHeight);
-window.addEventListener("resize", updateAppHeight);
-window.addEventListener("orientationchange", updateAppHeight);
-
 const POLL_INTERVAL_MS = 2000;
 const WHO_INTERVAL_MS = 10_000;
 const CACHE_LIMIT = 200;

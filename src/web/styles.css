@@ -50,10 +50,7 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
-  /* --app-height is driven by the visualViewport API in app.js.
-     Fall back to 100dvh for browsers that don't expose it, and to 100%
-     for browsers without dvh support. */
-  height: var(--app-height, 100dvh);
+  height: 100dvh;
   background: var(--bg);
   color: var(--fg);
 }
