@@ -182,6 +182,45 @@ test("screenshot: chat with many users and overflow", async ({ browser }) => {
   await ctx.close();
 });
 
+test("screenshot: mobile who-drawer (closed and open)", async ({ browser }) => {
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, ...DARK });
+  const page = await ctx.newPage();
+  await joinAs(page, "alice", "#who-shot");
+
+  // Populate the member list via API so the drawer has names to show.
+  for (const nick of ["bob", "carol", "dave"]) {
+    await page.evaluate(async (n) => {
+      await fetch("/api/join", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ nick: n, channel: "#who-shot" }),
+      });
+      await fetch("/api/say", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ nick: n, channel: "#who-shot", message: `hi from ${n}` }),
+      });
+    }, nick);
+  }
+  // who-list refreshes every 10s in the UI, so we need to allow up to one
+  // full interval after injecting the other members via API.
+  await expect(page.locator("#who-count")).toHaveText("4", { timeout: 15000 });
+  // Viewport-only (not fullPage): the drawer is position:absolute off-screen,
+  // which would otherwise inflate the captured width past the phone viewport.
+  await page.screenshot({ path: `${SHOT_DIR}/10-chat-mobile-who-closed.png` });
+
+  await page.click("#who-toggle");
+  // Wait for the slide-in transition to finish before capturing.
+  await page.waitForFunction(() => {
+    const p = document.getElementById("who-panel");
+    if (!p || !p.classList.contains("open")) return false;
+    const m = getComputedStyle(p).transform;
+    return m === "none" || m === "matrix(1, 0, 0, 1, 0, 0)";
+  });
+  await page.screenshot({ path: `${SHOT_DIR}/11-chat-mobile-who-open.png` });
+  await ctx.close();
+});
+
 test("screenshot: say input focused", async ({ browser }) => {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, ...DARK });
   const page = await ctx.newPage();
